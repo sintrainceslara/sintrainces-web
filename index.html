@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="Sitio web informativo de SINTRAINCES">
+  <title>SINTRAINCES | Sindicato Nacional de Trabajadores del INCES</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <header class="encabezado">
+    <div class="barra-superior">
+      <div class="marca">
+        <img src="assets/logo-sintrainces.jpg" alt="Logo SINTRAINCES">
+        <div>
+          <span class="nombre-largo">Sindicato Nacional de Trabajadores del INCES</span>
+        </div>
+      </div>
+      <button id="menuBtn" class="menu-btn" aria-label="Abrir menú">☰</button>
+      <nav id="menu" class="menu" aria-label="Navegación principal">
+        <div class="menu-fila menu-fila-principal">
+          <button data-pagina="inicio">Inicio</button>
+          <button data-pagina="organizacion">La organización</button>
+          <button data-pagina="comites">Comités</button>
+          <button data-pagina="organizaciones">Organizaciones</button>
+        </div>
+        <div class="menu-separador" aria-hidden="true"></div>
+        <div class="menu-fila menu-fila-secundaria">
+          <button data-pagina="documentos">Documentos</button>
+          <button data-pagina="noticias">Noticias</button>
+          <button data-pagina="galeria">Galería</button>
+          <button data-pagina="contacto">Contacto</button>
+        </div>
+      </nav>
+    </div>
+  </header>
+
+  <main id="app"></main>
+
+  <footer class="pie">
+    <div>
+      <strong>SINTRAINCES</strong>
+      <p>“DERECHO QUE NO SE DEFIENDE ES DERECHO QUE SE PIERDE”</p>
+    </div>
+    <div class="pie-links">
+      <button data-pagina="documentos">Documentos</button>
+      <button data-pagina="contacto">Contacto</button>
+      <button data-pagina="noticias">Noticias</button>
+      <button data-pagina="galeria">Galería</button>
+    </div>
+    <p class="copyright">Primera versión informativa — preparada para crecer hacia afiliados y panel administrativo.</p>
+  </footer>
+
+  <script src="app.js"></script>
+</body>
+</html>
