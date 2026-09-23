@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Verificación de Constancia | SINTRAINCES</title>
+<style>
+body{margin:0;font-family:Arial,Helvetica,sans-serif;background:#f4f7fb;color:#172033}
+.contenedor{max-width:720px;margin:40px auto;padding:24px}
+.tarjeta{background:#fff;border-radius:16px;padding:30px;box-shadow:0 8px 28px rgba(0,0,0,.10);text-align:center}
+.logo{max-width:230px;max-height:90px;object-fit:contain}
+h1{font-size:24px;margin:14px 0 4px;color:#173f7a}
+.sub{font-size:14px;color:#5d6672;margin-bottom:24px}
+.estado{padding:14px;border-radius:10px;font-weight:bold;margin:18px 0}
+.valida{background:#e9f7ee;color:#176b36}
+.invalida{background:#fdecec;color:#9b1c1c}
+.datos{display:grid;grid-template-columns:1fr 1fr;gap:10px;text-align:left;margin-top:22px}
+.dato{padding:12px;background:#f7f9fc;border-radius:8px}
+.dato b{display:block;font-size:12px;color:#697382;margin-bottom:4px}
+.dato span{font-size:15px}
+.mensaje{color:#697382;font-size:14px}
+@media(max-width:600px){.datos{grid-template-columns:1fr}.contenedor{margin:10px auto;padding:12px}}
+</style>
+</head>
+<body>
+<div class="contenedor">
+  <div class="tarjeta">
+    <img class="logo" src="assets/Logo Sintrainces.jpg" alt="SINTRAINCES" onerror="this.style.display='none'">
+    <h1>Verificación de Constancia</h1>
+    <div class="sub">SINDICATO NACIONAL DE TRABAJADORES DEL INCES</div>
+    <div id="resultado" class="mensaje">Consultando constancia...</div>
+  </div>
+</div>
+<script>
+const SUPABASE_URL = "https://patlltngoqmmiqwkfmjj.supabase.co";
+const SUPABASE_KEY = "sb_publishable_YHHWHax1U8gisM2vEIQgOg_WcGHGPr4";
+const params = new URLSearchParams(location.search);
+const codigo = (params.get("codigo") || "").trim();
+
+function esc(v){
+  return String(v ?? "").replace(/[&<>"']/g,m=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#039;"}[m]));
+}
+function fecha(v){
+  if(!v) return "";
+  const d=new Date(v);
+  return isNaN(d) ? v : d.toLocaleDateString("es-VE",{day:"2-digit",month:"2-digit",year:"numeric"});
+}
+async function verificar(){
+  const box=document.getElementById("resultado");
+  if(!codigo){
+    box.className="estado invalida";
+    box.textContent="No se recibió un código de verificación.";
+    return;
+  }
+  try{
+    const r=await fetch(`${SUPABASE_URL}/rest/v1/rpc/verificar_constancia`,{
+      method:"POST",
+      headers:{
+        "apikey":SUPABASE_KEY,
+        "Authorization":"Bearer "+SUPABASE_KEY,
+        "Content-Type":"application/json"
+      },
+      body:JSON.stringify({p_codigo:codigo})
+    });
+    const data=await r.json();
+    if(!r.ok) throw new Error(data.message || "No fue posible verificar la constancia.");
+    const item=Array.isArray(data)?data[0]:data;
+    if(!item){
+      box.className="estado invalida";
+      box.textContent="Constancia no encontrada.";
+      return;
+    }
+    const valida=!!item.valida;
+    box.className="estado "+(valida?"valida":"invalida");
+    box.textContent=valida?"✓ CONSTANCIA VÁLIDA":"✕ CONSTANCIA NO VÁLIDA";
+    const wrap=document.createElement("div");
+    wrap.className="datos";
+    wrap.innerHTML=`
+      <div class="dato"><b>Afiliado</b><span>${esc(item.nombre_completo)}</span></div>
+      <div class="dato"><b>Cédula</b><span>${esc(item.cedula)}</span></div>
+      <div class="dato"><b>Seccional</b><span>${esc(item.seccional)}</span></div>
+      <div class="dato"><b>Cargo</b><span>${esc(item.cargo)}</span></div>
+      <div class="dato"><b>Fecha de afiliación</b><span>${fecha(item.fecha_afiliacion)}</span></div>
+      <div class="dato"><b>Código</b><span>${esc(item.codigo)}</span></div>
+      <div class="dato"><b>Emitida</b><span>${fecha(item.emitida_en)}</span></div>
+      <div class="dato"><b>Válida hasta</b><span>${fecha(item.vence_en)}</span></div>`;
+    box.after(wrap);
+  }catch(e){
+    box.className="estado invalida";
+    box.textContent="No fue posible realizar la verificación.";
+    console.error(e);
+  }
+}
+verificar();
+</script>
+</body>
+</html>
