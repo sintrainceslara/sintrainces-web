@@ -1,0 +1,392 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Portal del Afiliado — SINTRAINCES</title>
+<link rel="stylesheet" href="admin.css">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.2/dist/jspdf.umd.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/qrcodejs@1.0.0/qrcode.min.js"></script>
+<script src="config.js"></script>
+<style>
+body{background:#f4f7fb}.portal{max-width:1080px;margin:24px auto;padding:16px}.portal-header{background:#fff;border:1px solid #e1e7ef;border-radius:16px;padding:18px 22px;display:flex;justify-content:space-between;align-items:center;gap:16px;margin-bottom:20px;box-shadow:0 5px 18px rgba(18,45,78,.07)}.header-brand{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;min-width:240px}.header-logo{width:180px;height:92px;object-fit:contain;display:block}.topbar .brand,.brand{font-size:24px;font-weight:800;color:#174ea6}.header-subtitle{font-size:16px;font-weight:800;color:#174ea6;margin-top:0;letter-spacing:.01em}.header-user{display:flex;align-items:center;gap:12px;color:#45515f;font-size:13px;font-weight:600}.grid{display:grid;grid-template-columns:1fr 1fr;gap:16px}.card,.service-card,.welcome-card,.module-header{background:#fff;border-radius:16px;padding:22px;box-shadow:0 6px 24px rgba(0,0,0,.07);border:1px solid #e3e8ef}.card h2,.service-card h2{margin-top:0;color:#173f7a}.welcome-card{display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;border-top:4px solid #174ea6}.welcome-card h1,.module-header h1{margin:4px 0 6px;color:#173f7a;font-size:25px}.welcome-kicker{font-size:11px;font-weight:800;letter-spacing:.08em;color:#174ea6}.service-grid{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:16px}.service-card{min-height:190px}.service-card-accent{border-top:4px solid #c62828}.service-icon{width:38px;height:38px;border-radius:10px;background:#eaf1fb;color:#174ea6;display:flex;align-items:center;justify-content:center;font-weight:900;font-size:20px;margin-bottom:12px}.service-card-accent .service-icon{background:#fdecec;color:#b42318}.formgrid{display:grid;grid-template-columns:1fr 1fr;gap:12px}.full{grid-column:1/-1}label{display:block;font-weight:600;font-size:13px;color:#45515f}input,textarea,select{width:100%;box-sizing:border-box;margin-top:6px;padding:10px;border:1px solid #ccd4df;border-radius:8px;background:#fff}textarea{min-height:100px;resize:vertical}.actions{display:flex;gap:10px;flex-wrap:wrap;margin-top:15px}button{border:0;border-radius:9px;padding:11px 16px;background:#174ea6;color:#fff;cursor:pointer;font-weight:700}button:hover{filter:brightness(.96)}button.secondary{background:#eef3fa;color:#173f7a}.msg{margin-top:10px;font-size:13px}.dato{padding:11px;background:#f7f9fc;border-radius:8px;margin-bottom:8px}.dato b{display:block;font-size:11px;color:#6c7683;margin-bottom:3px}.hidden{display:none}.auth-link{display:inline-block;margin-top:10px;color:#174ea6;font-weight:700;text-decoration:none;cursor:pointer}.auth-link:hover{text-decoration:underline}.recovery-box{margin-top:16px;padding:16px;border:1px solid #d8e0eb;border-radius:12px;background:#f8fafc}.recovery-box h3{margin:0 0 8px;color:#173f7a}.muted{color:#687384;font-size:13px}.solicitud{border-top:1px solid #e2e7ee;padding-top:12px;margin-top:12px}.logout{background:#b42318}.reclamos-list{margin-top:14px}.reclamo-row{border:1px solid #e2e7ee;border-radius:10px;padding:12px;margin-top:10px;background:#fbfcfe}.reclamo-head{display:flex;justify-content:space-between;gap:10px;align-items:center}.reclamo-estado{font-size:11px;font-weight:800;padding:5px 8px;border-radius:999px;background:#eef3fa;color:#173f7a}.reclamo-meta{font-size:12px;color:#687384;margin-top:5px}.reclamo-sugerencia{margin-top:8px;padding:9px;background:#f5f8fc;border-left:3px solid #174ea6;font-size:13px}.constancias{margin-top:12px}.constancia-row{display:flex;justify-content:space-between;gap:10px;align-items:center;padding:10px 0;border-bottom:1px solid #e5e9ef;font-size:13px}.constancia-row button{padding:7px 10px;font-size:12px}.module-header{display:flex;justify-content:space-between;align-items:center;gap:16px;margin-bottom:16px;border-top:4px solid #174ea6}.module-grid{display:grid;grid-template-columns:1.05fr .95fr;gap:16px}@media(max-width:720px){.grid,.service-grid,.formgrid,.module-grid{grid-template-columns:1fr}.portal-header{align-items:flex-start;flex-direction:column}.header-user{width:100%;justify-content:space-between}.module-header{align-items:flex-start;flex-direction:column}.constancia-row{align-items:flex-start;flex-direction:column}}
+</style>
+</head>
+<body>
+<main class="portal">
+  <div id="authView">
+    <div class="card" style="max-width:560px;margin:auto">
+      <div class="brand">SINTRAINCES</div>
+      <h1>Portal del Afiliado</h1>
+      <p class="muted">Consulta tus datos, solicita correcciones y genera tu constancia de afiliación.</p>
+      <div id="authMsg" class="msg"></div>
+      <div class="grid" style="margin-top:16px">
+        <section class="card" style="box-shadow:none;border:1px solid #e5e9ef">
+          <h2>Crear acceso</h2>
+          <form id="regForm">
+            <label>Correo electrónico<input id="rEmail" type="email" required></label>
+            <label>Contraseña<input id="rPass" type="password" minlength="8" required></label>
+            <label>Confirmar contraseña<input id="rPass2" type="password" minlength="8" required></label>
+            <label>Cédula<input id="rCed" required></label>
+            <label>Fecha de nacimiento<input id="rDob" type="date" required></label>
+            <div class="actions"><button>Crear mi acceso</button></div>
+            <div id="regMsg" class="msg"></div>
+          </form>
+        </section>
+        <section class="card" style="box-shadow:none;border:1px solid #e5e9ef">
+          <h2>Ya tengo acceso</h2>
+          <form id="loginForm">
+            <label>Correo electrónico<input id="lEmail" type="email" required></label>
+            <label>Contraseña<input id="lPass" type="password" required></label>
+            <label>Cédula<input id="lCed" required></label>
+            <label>Fecha de nacimiento<input id="lDob" type="date" required></label>
+            <div class="actions"><button>Ingresar</button></div>
+            <div id="loginMsg" class="msg"></div>
+            <a id="forgotPasswordLink" class="auth-link" href="#">¿Olvidaste tu contraseña?</a>
+          </form>
+          <div id="recoveryBox" class="recovery-box hidden">
+            <h3>Recuperar contraseña</h3>
+            <p class="muted">Escribe el correo electrónico con el que registraste tu acceso. Te enviaremos un enlace para crear una nueva contraseña.</p>
+            <form id="recoveryForm">
+              <label>Correo electrónico<input id="recoveryEmail" type="email" required></label>
+              <div class="actions"><button>Enviar enlace de recuperación</button><button type="button" id="cancelRecoveryBtn" class="secondary">Cancelar</button></div>
+              <div id="recoveryMsg" class="msg"></div>
+            </form>
+          </div>
+        </section>
+      </div>
+    </div>
+  </div>
+
+  <div id="passwordRecoveryView" class="hidden">
+    <div class="card" style="max-width:560px;margin:auto">
+      <div class="brand">SINTRAINCES</div>
+      <h1>Crear nueva contraseña</h1>
+      <p class="muted">Has solicitado recuperar tu acceso. Escribe una nueva contraseña de al menos 8 caracteres.</p>
+      <form id="passwordRecoveryForm">
+        <label>Nueva contraseña<input id="newRecoveryPassword" type="password" minlength="8" required></label>
+        <label>Confirmar nueva contraseña<input id="newRecoveryPassword2" type="password" minlength="8" required></label>
+        <div class="actions"><button>Actualizar contraseña</button></div>
+        <div id="passwordRecoveryMsg" class="msg"></div>
+      </form>
+    </div>
+  </div>
+
+  <div id="appView" class="hidden">
+    <header class="portal-header">
+      <div class="header-brand">
+        <img src="assets/logo-sintrainces.jpg" alt="Logotipo SINTRAINCES" class="header-logo">
+        <div class="header-subtitle">Portal del Afiliado</div>
+      </div>
+      <div class="header-user">
+        <span id="headerUserName">Afiliado</span>
+        <button id="logoutBtn" class="logout">Cerrar sesión</button>
+      </div>
+    </header>
+
+    <section id="portalHome">
+      <div class="welcome-card">
+        <div>
+          <div class="welcome-kicker">ÁREA PRIVADA</div>
+          <h1>Bienvenido/a al Portal del Afiliado</h1>
+          <p class="muted">Consulta tu información y accede a los servicios disponibles para ti.</p>
+        </div>
+      </div>
+
+      <div class="service-grid">
+        <section class="service-card">
+          <div class="service-icon">✓</div>
+          <h2>Constancia de Afiliación</h2>
+          <p class="muted">Genera tu constancia de afiliación en formato PDF, con código QR de verificación.</p>
+          <div class="actions"><button id="constanciaBtn">Generar constancia PDF</button></div>
+          <div id="constanciaMsg" class="msg"></div>
+        </section>
+
+        <section class="service-card service-card-accent">
+          <div class="service-icon">✦</div>
+          <h2>Reclamos y Sugerencias</h2>
+          <p class="muted">Registra un reclamo o presenta una sugerencia y consulta posteriormente su seguimiento.</p>
+          <div class="actions"><button id="abrirReclamosBtn">Reclamos y Sugerencias</button></div>
+        </section>
+      </div>
+
+      <section class="card info-card">
+        <h2>Mi información</h2>
+        <div id="datos"></div>
+        <div id="constancias" class="constancias"></div>
+      </section>
+
+      <section class="card">
+        <h2>Solicitar corrección de datos</h2>
+        <p class="muted">Las modificaciones de datos sensibles deben ser revisadas por SINTRAINCES.</p>
+        <form id="solicitudForm">
+          <label>Asunto<input id="sAsunto" required placeholder="Ej.: corregir número telefónico"></label>
+          <label>Detalle<textarea id="sDetalle" required placeholder="Describe la corrección que deseas solicitar"></textarea></label>
+          <div class="actions"><button class="secondary">Enviar solicitud</button></div>
+          <div id="solMsg" class="msg"></div>
+        </form>
+        <div id="solicitudes"></div>
+      </section>
+    </section>
+
+    <section id="reclamosModule" class="hidden">
+      <div class="module-header">
+        <div>
+          <div class="welcome-kicker">SERVICIO AL AFILIADO</div>
+          <h1>Reclamos y Sugerencias</h1>
+          <p class="muted">Registra tu caso y consulta el estado de las gestiones realizadas por SINTRAINCES.</p>
+        </div>
+        <button id="volverPortalBtn" class="secondary">← Volver al portal</button>
+      </div>
+
+      <div class="module-grid">
+        <section class="card">
+          <h2>Registrar reclamo o sugerencia</h2>
+          <p class="muted">Completa los datos para dejar constancia de tu situación o propuesta.</p>
+          <form id="reclamoForm">
+            <div class="formgrid">
+              <label>Tipo
+                <select id="rTipo" required>
+                  <option value="reclamo">Reclamo</option>
+                  <option value="sugerencia">Sugerencia</option>
+                </select>
+              </label>
+              <label>Categoría
+                <select id="rCategoria" required>
+                  <option value="laboral">Laboral</option>
+                  <option value="salarial_beneficios">Salarial / beneficios</option>
+                  <option value="contratacion_colectiva">Contratación colectiva</option>
+                  <option value="seguridad_salud">Seguridad y salud laboral</option>
+                  <option value="jornada_horario">Jornada / horario</option>
+                  <option value="discriminacion_acoso">Discriminación o acoso</option>
+                  <option value="jubilacion_pension">Jubilación / pensión</option>
+                  <option value="otro">Otro</option>
+                </select>
+              </label>
+              <label class="full">Asunto<input id="rAsunto" required maxlength="180" placeholder="Escribe un asunto breve"></label>
+              <label>Fecha del hecho<input id="rFechaHecho" type="date"></label>
+              <label>Centro de Formación (CFS)<input id="rCfs" readonly placeholder="Se cargará con tus datos"></label>
+              <label class="full">Ciudad<input id="rCiudad" readonly placeholder="Se cargará con tus datos"></label>
+              <label class="full">Descripción del reclamo o situación<textarea id="rDescripcion" required maxlength="5000" placeholder="Describe con claridad lo ocurrido o la situación que deseas comunicar"></textarea></label>
+              <label class="full">Sugerencia del afiliado<textarea id="rSugerencia" required maxlength="3000" placeholder="¿Qué solución o acción consideras pertinente para atender este caso?"></textarea></label>
+            </div>
+            <div class="actions"><button>Enviar reclamo o sugerencia</button></div>
+            <div id="reclamoMsg" class="msg"></div>
+          </form>
+        </section>
+        <section class="card">
+          <h2>Mis reclamos y sugerencias</h2>
+          <p class="muted">Aquí podrás consultar tus casos y las respuestas o actualizaciones de SINTRAINCES.</p>
+          <div id="reclamos" class="reclamos-list"></div>
+        </section>
+      </div>
+    </section>
+  </div>
+</main>
+<div id="qrTemp" style="position:absolute;left:-99999px;top:-99999px"></div>
+<script>
+const cfg=window.SINTRAINCES_CONFIG;
+const sb=window.supabase.createClient(cfg.SUPABASE_URL,cfg.SUPABASE_PUBLISHABLE_KEY);
+const $=id=>document.getElementById(id);
+let perfil=null, afiliado=null;
+const setMsg=(id,t,ok=false)=>{$(id).textContent=t;$(id).style.color=ok?'#027a48':'#b42318'};
+async function vincular(ced,dob){
+  const {data,error}=await sb.rpc('vincular_usuario_afiliado',{p_cedula:ced.trim(),p_fecha_nacimiento:dob});
+  if(error)throw error;
+  if(!data?.length)throw new Error('No se pudo vincular el usuario con el registro sindical.');
+  return data[0];
+}
+async function cargarPerfil(){
+  const {data:p,error:pe}=await sb.rpc('mi_perfil_actual');
+  if(pe)throw pe;
+  if(!p?.length || p[0].rol!=='afiliado') throw new Error('La cuenta no está vinculada como afiliado.');
+  perfil=p[0];
+  const {data:a,error:ae}=await sb.from('afiliados').select('*').eq('id',perfil.afiliado_id).single();
+  if(ae)throw ae;
+  afiliado=a;
+  await pintar();
+}
+async function nombreTabla(tabla,id){if(!id)return '';const {data}=await sb.from(tabla).select('nombre').eq('id',id).maybeSingle();return data?.nombre||'';}
+async function pintar(){
+  const [sec,cargo,est,cfs]=await Promise.all([nombreTabla('seccionales',afiliado.seccional_id),nombreTabla('cargos',afiliado.cargo_id),nombreTabla('estatus',afiliado.estatus_id),nombreTabla('cfs',afiliado.cfs_id)]);
+  const nombre=[afiliado.primer_nombre,afiliado.segundo_nombre,afiliado.primer_apellido,afiliado.segundo_apellido].filter(Boolean).join(' ');
+  $('headerUserName').textContent=nombre;
+  $('datos').innerHTML=`
+    <div class="dato"><b>Nombre completo</b>${esc(nombre)}</div>
+    <div class="dato"><b>Cédula</b>${esc((afiliado.nacionalidad||'')+'-'+(afiliado.cedula||''))}</div>
+    <div class="dato"><b>Seccional</b>${esc(sec)}</div>
+    <div class="dato"><b>Cargo</b>${esc(cargo)}</div>
+    <div class="dato"><b>Estatus</b>${esc(est)}</div>
+    <div class="dato"><b>Centro de Formación</b>${esc(cfs||'No registrado')}</div>
+    <div class="dato"><b>Fecha de afiliación</b>${fecha(afiliado.fecha_ingreso)}</div>
+    <div class="dato"><b>Teléfono</b>${esc(afiliado.telefono||'No registrado')}</div>
+    <div class="dato"><b>Correo electrónico</b>${esc(afiliado.correo_electronico||'No registrado')}</div>
+    <div class="dato"><b>Dirección</b>${esc(afiliado.direccion||'No registrada')}</div>
+    <div class="dato"><b>Ciudad</b>${esc(afiliado.ciudad||'No registrada')}</div>`;
+  $('rCfs').value=cfs||'No registrado'; $('rCiudad').value=afiliado.ciudad||'No registrada';
+  await cargarConstancias(sec);
+  await cargarSolicitudes();
+  await cargarReclamos();
+}
+function esc(v){return String(v??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[m]))}
+function fecha(v){if(!v)return '';const d=new Date(v+'T00:00:00');return isNaN(d)?v:d.toLocaleDateString('es-VE',{day:'2-digit',month:'2-digit',year:'numeric'})}
+function fechaHora(v){if(!v)return '';const d=new Date(v);return isNaN(d)?v:d.toLocaleDateString('es-VE',{day:'2-digit',month:'2-digit',year:'numeric'})}
+async function cargarConstancias(sec){
+  const {data,error}=await sb.from('constancias_afiliacion').select('id,codigo,emitida_en,vence_en').eq('afiliado_id',afiliado.id).order('emitida_en',{ascending:false}).limit(5);
+  if(error){$('constancias').innerHTML='';return;}
+  $('constancias').innerHTML='<h3 style="font-size:15px;margin-bottom:8px">Mis constancias</h3>'+((data||[]).map(x=>`<div class="constancia-row"><span><b>${esc(x.codigo)}</b><br>Emitida ${fechaHora(x.emitida_en)} · válida hasta ${fechaHora(x.vence_en)}</span><button class="secondary" onclick="generarDesdeRegistro(${x.id})">Generar PDF</button></div>`).join('')||'<div class="muted">Aún no tienes constancias emitidas.</div>');
+}
+async function cargarSolicitudes(){
+  const {data}=await sb.from('solicitudes_afiliado').select('id,asunto,detalle,estado,created_at,respuesta').eq('afiliado_id',afiliado.id).order('created_at',{ascending:false}).limit(8);
+  $('solicitudes').innerHTML='<div class="solicitud"><h3 style="font-size:15px">Mis solicitudes</h3>'+((data||[]).map(x=>`<div class="dato"><b>${esc(x.asunto||'Solicitud')} · ${esc(x.estado)}</b>${esc(x.detalle||'')}<br><small>${fechaHora(x.created_at)}${x.respuesta?' · Respuesta: '+esc(x.respuesta):''}</small></div>`).join('')||'<div class="muted">No hay solicitudes registradas.</div>')+'</div>';
+}
+function etiquetaCategoria(v){return ({laboral:'Laboral',salarial_beneficios:'Salarial / beneficios',contratacion_colectiva:'Contratación colectiva',seguridad_salud:'Seguridad y salud laboral',jornada_horario:'Jornada / horario',discriminacion_acoso:'Discriminación o acoso',jubilacion_pension:'Jubilación / pensión',otro:'Otro'})[v]||v||''}
+function etiquetaTipo(v){return v==='sugerencia'?'Sugerencia':'Reclamo'}
+function etiquetaEstado(v){return ({recibido:'Recibido',en_revision:'En revisión',en_gestion:'En gestión',resuelto:'Resuelto',cerrado:'Cerrado'})[v]||v||''}
+async function cargarReclamos(){
+  const {data,error}=await sb.from('reclamos_sugerencias').select('id,tipo,categoria,asunto,descripcion,fecha_hecho,sugerencia,estado,respuesta,created_at,updated_at').eq('afiliado_id',afiliado.id).order('created_at',{ascending:false}).limit(10);
+  if(error){$('reclamos').innerHTML='<div class="muted">No se pudieron cargar tus reclamos y sugerencias.</div>';return;}
+  $('reclamos').innerHTML='<h3 style="font-size:15px;margin-bottom:8px">Mis reclamos y sugerencias</h3>'+((data||[]).map(x=>`<div class="reclamo-row"><div class="reclamo-head"><b>${esc(x.asunto||etiquetaTipo(x.tipo))}</b><span class="reclamo-estado">${esc(etiquetaEstado(x.estado))}</span></div><div class="reclamo-meta">${esc(etiquetaTipo(x.tipo))} · ${esc(etiquetaCategoria(x.categoria))} · ${fechaHora(x.created_at)}${x.fecha_hecho?' · Hecho: '+fecha(x.fecha_hecho):''}</div><div style="margin-top:8px;font-size:13px">${esc(x.descripcion||'')}</div>${x.sugerencia?`<div class="reclamo-sugerencia"><b>Sugerencia del afiliado:</b><br>${esc(x.sugerencia)}</div>`:''}${x.respuesta?`<div class="reclamo-sugerencia" style="border-left-color:#667085"><b>Respuesta de SINTRAINCES:</b><br>${esc(x.respuesta)}</div>`:''}</div>`).join('')||'<div class="muted">Aún no tienes reclamos o sugerencias registrados.</div>');
+}
+$('regForm').onsubmit=async e=>{e.preventDefault();setMsg('regMsg','Creando acceso…');if($('rPass').value!==$('rPass2').value)return setMsg('regMsg','Las contraseñas no coinciden.');try{const {data,error}=await sb.auth.signUp({email:$('rEmail').value.trim(),password:$('rPass').value,options:{emailRedirectTo:`${window.location.origin}/portal_afiliado.html`}});if(error)throw error;if(data.session){await vincular($('rCed').value,$('rDob').value);await iniciarPortal();}else{setMsg('regMsg','Cuenta creada. Revisa tu correo para confirmar la cuenta y luego inicia sesión.',true)}}catch(e){setMsg('regMsg',e.message||String(e))}};
+$('loginForm').onsubmit=async e=>{e.preventDefault();setMsg('loginMsg','Ingresando…');try{const {data,error}=await sb.auth.signInWithPassword({email:$('lEmail').value.trim(),password:$('lPass').value});if(error)throw error;await vincular($('lCed').value,$('lDob').value);await iniciarPortal()}catch(e){setMsg('loginMsg',e.message||String(e))}};
+$('forgotPasswordLink').onclick=e=>{e.preventDefault();$('recoveryBox').classList.toggle('hidden');$('recoveryEmail').value=$('lEmail').value.trim();if(!$('recoveryBox').classList.contains('hidden'))$('recoveryEmail').focus()};
+$('cancelRecoveryBtn').onclick=()=>{$('recoveryBox').classList.add('hidden');$('recoveryMsg').textContent=''};
+$('recoveryForm').onsubmit=async e=>{e.preventDefault();setMsg('recoveryMsg','Enviando enlace…');try{const email=$('recoveryEmail').value.trim();if(!email)throw new Error('Indique su correo electrónico.');const redirectTo=`${window.location.origin}${window.location.pathname}`;const {error}=await sb.auth.resetPasswordForEmail(email,{redirectTo});if(error)throw error;setMsg('recoveryMsg','Si existe una cuenta con ese correo, recibirás un enlace para recuperar tu contraseña. Revisa también la carpeta de correo no deseado.',true)}catch(e){setMsg('recoveryMsg',e.message||String(e))}};
+$('passwordRecoveryForm').onsubmit=async e=>{e.preventDefault();setMsg('passwordRecoveryMsg','Actualizando contraseña…');const p1=$('newRecoveryPassword').value,p2=$('newRecoveryPassword2').value;if(p1!==p2)return setMsg('passwordRecoveryMsg','Las contraseñas no coinciden.');try{const {error}=await sb.auth.updateUser({password:p1});if(error)throw error;setMsg('passwordRecoveryMsg','Contraseña actualizada correctamente. Ya puedes ingresar con tu nueva contraseña.',true);setTimeout(async()=>{await sb.auth.signOut();location.href=window.location.pathname},1200)}catch(e){setMsg('passwordRecoveryMsg',e.message||String(e))}};
+$('logoutBtn').onclick=async()=>{await sb.auth.signOut();location.reload()};
+async function iniciarPortal(){ $('authView').classList.add('hidden');$('appView').classList.remove('hidden');try{await cargarPerfil()}catch(e){$('appView').classList.add('hidden');$('authView').classList.remove('hidden');setMsg('authMsg',e.message||String(e))}}
+$('reclamoForm').onsubmit=async e=>{e.preventDefault();setMsg('reclamoMsg','Enviando…');try{const payload={afiliado_id:afiliado.id,tipo:$('rTipo').value,categoria:$('rCategoria').value,asunto:$('rAsunto').value.trim(),descripcion:$('rDescripcion').value.trim(),fecha_hecho:$('rFechaHecho').value||null,cfs_id:afiliado.cfs_id||null,ciudad:afiliado.ciudad||null,sugerencia:$('rSugerencia').value.trim()};const {error}=await sb.from('reclamos_sugerencias').insert(payload);if(error)throw error;const cfsActual=$('rCfs').value, ciudadActual=$('rCiudad').value;$('reclamoForm').reset();$('rCfs').value=cfsActual;$('rCiudad').value=ciudadActual;setMsg('reclamoMsg','Reclamo o sugerencia registrado correctamente.',true);await cargarReclamos()}catch(e){setMsg('reclamoMsg',e.message||String(e))}};
+$('solicitudForm').onsubmit=async e=>{e.preventDefault();setMsg('solMsg','Enviando…');try{const {error}=await sb.from('solicitudes_afiliado').insert({afiliado_id:afiliado.id,tipo:'solicitud',asunto:$('sAsunto').value.trim(),detalle:$('sDetalle').value.trim()});if(error)throw error;$('solicitudForm').reset();setMsg('solMsg','Solicitud enviada correctamente.',true);await cargarSolicitudes()}catch(e){setMsg('solMsg',e.message||String(e))}};
+async function imgData(url){const r=await fetch(url);const b=await r.blob();return await new Promise((res,rej)=>{const fr=new FileReader();fr.onload=()=>res(fr.result);fr.onerror=rej;fr.readAsDataURL(b)})}
+function fit(iw,ih,mw,mh){const k=Math.min(mw/iw,mh/ih);return [iw*k,ih*k]}
+async function imageSize(url){const im=new Image();im.src=url;await im.decode();return [im.naturalWidth,im.naturalHeight]}
+async function generarDesdeRegistro(id){
+  const {data,error}=await sb.from('constancias_afiliacion').select('id,codigo,emitida_en,vence_en').eq('id',id).single();
+  if(error)throw error; await crearPdf(data);
+}
+$('abrirReclamosBtn').onclick=()=>{ $('portalHome').classList.add('hidden'); $('reclamosModule').classList.remove('hidden'); window.scrollTo({top:0,behavior:'smooth'}); };
+$('volverPortalBtn').onclick=()=>{ $('reclamosModule').classList.add('hidden'); $('portalHome').classList.remove('hidden'); window.scrollTo({top:0,behavior:'smooth'}); };
+$('constanciaBtn').onclick=async()=>{setMsg('constanciaMsg','Emitiendo constancia…');try{const {data,error}=await sb.rpc('crear_constancia_afiliacion',{p_afiliado_id:afiliado.id});if(error)throw error;const row=Array.isArray(data)?data[0]:data;await crearPdf(row);setMsg('constanciaMsg','Constancia generada correctamente.',true);await pintar()}catch(e){setMsg('constanciaMsg',e.message||String(e))}};
+async function crearPdf(row){
+  const {jsPDF}=window.jspdf;
+  const pdf=new jsPDF({unit:'pt',format:'a4'});
+  const W=pdf.internal.pageSize.getWidth(),H=pdf.internal.pageSize.getHeight();
+  const C={blue:'#174EA6',dark:'#173F7A',gray:'#3F4650',light:'#D5DCE8'};
+
+  // Marco institucional
+  pdf.setDrawColor(C.blue);pdf.setLineWidth(1.2);pdf.rect(32,32,W-64,H-64);
+
+  // Recursos gráficos institucionales
+  const paths={sin:'assets/logo-sintrainces.jpg',asi:'assets/constancia/asi.png',csi:'assets/constancia/csi.png',csa:'assets/constancia/csa.png',psi:'assets/constancia/psi.png',firma:'assets/constancia/firma.png',sello:'assets/constancia/sello.png'};
+  const data={};
+  for(const k of Object.keys(paths)) data[k]=await imgData(paths[k]);
+
+  // ---------- ENCABEZADO ----------
+  const [siw,sih]=await imageSize(paths.sin);
+  let [lw,lh]=fit(siw,sih,210,62);
+  pdf.addImage(data.sin,'PNG',(W-lw)/2,48,lw,lh,'sin');
+
+  pdf.setTextColor(C.dark);pdf.setFont('helvetica','bold');pdf.setFontSize(12.5);
+  pdf.text('SINDICATO NACIONAL DE TRABAJADORES DEL INCES',W/2,125,{align:'center'});
+  pdf.setDrawColor(C.blue);pdf.setLineWidth(1);pdf.line(52,137,W-52,137);
+
+  const org=[['asi',56,36],['csi',42,40],['csa',50,40],['psi',42,40]];
+  const dims=[];
+  for(const [k,mw,mh] of org){const [iw,ih]=await imageSize(paths[k]);const [ow,oh]=fit(iw,ih,mw,mh);dims.push([k,ow,oh]);}
+  const gap=14,total=dims.reduce((sum,d)=>sum+d[1],0)+gap*3;
+  let x=(W-total)/2;
+  for(const [k,ow,oh] of dims){pdf.addImage(data[k],'PNG',x,149,ow,oh,k);x+=ow+gap;}
+  pdf.setDrawColor(C.light);pdf.setLineWidth(.6);pdf.line(52,201,W-52,201);
+
+  // ---------- CUERPO ----------
+  let ty=235;
+  pdf.setTextColor(C.dark);pdf.setFont('helvetica','bold');pdf.setFontSize(18);
+  pdf.text('CONSTANCIA DE AFILIACIÓN',W/2,ty,{align:'center'});
+  pdf.setTextColor(C.gray);pdf.setFont('helvetica','normal');pdf.setFontSize(10.5);
+  pdf.text('Por medio de la presente se hace constar que:',W/2,ty+22,{align:'center'});
+
+  const nombre=[afiliado.primer_nombre,afiliado.segundo_nombre,afiliado.primer_apellido,afiliado.segundo_apellido].filter(Boolean).join(' ');
+  pdf.setTextColor(C.blue);pdf.setFont('helvetica','bold');pdf.setFontSize(15);
+  pdf.text(nombre,W/2,ty+48,{align:'center'});
+
+  const sec=await nombreTabla('seccionales',afiliado.seccional_id);
+  const cargo=await nombreTabla('cargos',afiliado.cargo_id);
+  const est=await nombreTabla('estatus',afiliado.estatus_id);
+  pdf.setTextColor(C.gray);pdf.setFont('helvetica','normal');pdf.setFontSize(10.5);
+  const body=`titular de la cédula de identidad ${(afiliado.nacionalidad||'V')}-${afiliado.cedula}, se encuentra afiliado(a) a SINTRAINCES, adscrito(a) a la Seccional ${sec}, con cargo ${cargo} y estatus ${est}.`;
+  const lines=pdf.splitTextToSize(body,W-120);
+  pdf.text(lines,W/2,ty+76,{align:'center',maxWidth:W-120});
+
+  // ---------- DATOS DE LA CONSTANCIA ----------
+  const dataY=ty+76+(lines.length*14)+34;
+  pdf.setTextColor('#222B36');pdf.setFont('helvetica','bold');pdf.setFontSize(10.5);
+  const rows=[
+    ['Fecha de afiliación:',fecha(afiliado.fecha_ingreso)],
+    ['Seccional:',sec],
+    ['Código de verificación:',row.codigo],
+    ['Emitida:',fechaHora(row.emitida_en)],
+    ['Válida hasta:',fechaHora(row.vence_en)]
+  ];
+  rows.forEach((r,i)=>{
+    const yy=dataY+i*21;
+    pdf.setFont('helvetica','bold');pdf.text(r[0],75,yy);
+    pdf.setFont('helvetica','normal');pdf.text(r[1]||'',210,yy);
+  });
+
+  // ---------- PIE DE AUTENTICIDAD ----------
+  const by=650;
+  const verifyUrl=`https://sintrainceslara.github.io/sintrainces-web/verificar.html?codigo=${encodeURIComponent(row.codigo)}`;
+  const qbox=$('qrTemp');qbox.innerHTML='';
+  new QRCode(qbox,{text:verifyUrl,width:140,height:140,colorDark:'#000000',colorLight:'#ffffff'});
+  await new Promise(r=>setTimeout(r,80));
+  const qcanvas=qbox.querySelector('canvas');
+  if(qcanvas){
+    pdf.addImage(qcanvas.toDataURL('image/png'),'PNG',68,by-20,82,82);
+    pdf.setTextColor(C.gray);pdf.setFont('helvetica','normal');pdf.setFontSize(8);
+    pdf.text('Verificación QR',109,by+72,{align:'center'});
+  }
+
+  // Firma: nombre del Presidente, espacio para la firma, cargo y leyenda
+  const centerX=305;
+  pdf.setTextColor(C.dark);pdf.setFont('helvetica','bold');pdf.setFontSize(10.5);
+  pdf.text('Lcdo. Carmelo Sánchez',centerX,by+4,{align:'center'});
+
+  const [fw,fh]=fit(...(await imageSize(paths.firma)),145,58);
+  pdf.addImage(data.firma,'PNG',centerX-fw/2,by+12,fw,fh,'firma');
+  pdf.setDrawColor(C.gray);pdf.setLineWidth(.6);pdf.line(centerX-82,by+73,centerX+82,by+73);
+  pdf.setTextColor(C.gray);pdf.setFont('helvetica','bold');pdf.setFontSize(9.5);
+  pdf.text('Presidente',centerX,by+89,{align:'center'});
+  pdf.setFont('helvetica','normal');pdf.setFontSize(9);
+  pdf.text('Firma Autorizada',centerX,by+103,{align:'center'});
+
+  const [sw,sh]=fit(...(await imageSize(paths.sello)),92,108);
+  pdf.addImage(data.sello,'PNG',W-92-sw/2,by-8,sw,sh,'sello');
+
+  // ---------- PIE INFORMATIVO ----------
+  pdf.setDrawColor(C.blue);pdf.setLineWidth(.8);pdf.line(52,H-72,W-52,H-72);
+  pdf.setTextColor('#5A6470');pdf.setFont('helvetica','normal');pdf.setFontSize(8);
+  pdf.text('La autenticidad podrá verificarse mediante el código y QR indicados.',W/2,H-55,{align:'center'});
+  pdf.text('Esta constancia tiene una vigencia de 30 días desde su fecha de emisión.',W/2,H-43,{align:'center'});
+
+  pdf.save(`Constancia_SINTRAINCES_${afiliado.cedula}.pdf`);
+}
+let recuperacionActiva=false;
+sb.auth.onAuthStateChange((event,session)=>{
+  if(event==='PASSWORD_RECOVERY'){
+    recuperacionActiva=true;
+    $('authView').classList.add('hidden');
+    $('appView').classList.add('hidden');
+    $('passwordRecoveryView').classList.remove('hidden');
+  }
+});
+(async()=>{
+  const {data:{session}}=await sb.auth.getSession();
+  if(session && !recuperacionActiva && !window.location.hash.includes('type=recovery')){
+    try{await cargarPerfil();$('authView').classList.add('hidden');$('appView').classList.remove('hidden')}catch(e){await sb.auth.signOut()}
+  }
+})();
+</script>
+</body>
+</html>
