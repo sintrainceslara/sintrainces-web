@@ -1,37 +1,11 @@
-<!doctype html><html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Verificación de Constancia — SINTRAINCES</title><link rel="stylesheet" href="admin.css"><script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script><script src="config.js"></script></head><body><main style="max-width:760px;margin:40px auto;padding:20px"><div class="panel" id="resultado"><h1>Verificación de constancia</h1><p>Consultando código…</p></div></main><script>
-const SUPABASE_URL = "https://patlltngoqmmiqwkfmjj.supabase.co";
-const SUPABASE_KEY = "sb_publishable_YHHWHax1U8gisM2vEIQgOg_WcGHGPr4";
-const params = new URLSearchParams(location.search);
-const codigo = (params.get("codigo") || "").trim();
-function esc(v){return String(v ?? "").replace(/[&<>"']/g,m=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#039;"}[m]));}
-function fecha(v){if(!v)return "";const d=new Date(v);return isNaN(d)?v:d.toLocaleDateString("es-VE",{day:"2-digit",month:"2-digit",year:"numeric"});}
-async function rpc(nombre,p_codigo){const r=await fetch(`${SUPABASE_URL}/rest/v1/rpc/${nombre}`,{method:"POST",headers:{"apikey":SUPABASE_KEY,"Authorization":"Bearer "+SUPABASE_KEY,"Content-Type":"application/json"},body:JSON.stringify({p_codigo})});const data=await r.json();if(!r.ok)throw new Error(data.message||"No fue posible verificar la constancia.");return Array.isArray(data)?data[0]:data;}
-async function verificar(){
- const box=document.getElementById("resultado");
- if(!codigo){box.className="estado invalida";box.textContent="No se recibió un código de verificación.";return;}
- try{
-   const dirigente=codigo.toUpperCase().startsWith("DS-");
-   const item=await rpc(dirigente?"verificar_constancia_dirigente":"verificar_constancia",codigo);
-   if(!item){box.className="estado invalida";box.textContent="Constancia no encontrada.";return;}
-   const valida=!!item.valida; box.className="estado "+(valida?"valida":"invalida"); box.textContent=valida?"✓ CONSTANCIA VÁLIDA":"✕ CONSTANCIA VENCIDA O NO VÁLIDA";
-   const wrap=document.createElement("div");wrap.className="datos";
-   if(dirigente){wrap.innerHTML=`
-    <div class="dato"><b>Dirigente</b><span>${esc(item.nombre_completo)}</span></div>
-    <div class="dato"><b>Cédula</b><span>${esc(item.cedula)}</span></div>
-    <div class="dato"><b>Órgano</b><span>${esc(item.organo)}</span></div>
-    <div class="dato"><b>Cargo</b><span>${esc(item.cargo)}</span></div>
-    <div class="dato"><b>Seccional</b><span>${esc(item.seccional||"—")}</span></div>
-    <div class="dato"><b>Inicio de gestión</b><span>${fecha(item.fecha_inicio_gestion)}</span></div>
-    <div class="dato"><b>Código</b><span>${esc(item.codigo)}</span></div>
-    <div class="dato"><b>Emitida</b><span>${fecha(item.emitida_en)}</span></div>
-    <div class="dato"><b>Válida hasta</b><span>${fecha(item.vence_en)}</span></div>`;
-   }else{wrap.innerHTML=`
-    <div class="dato"><b>Afiliado</b><span>${esc(item.nombre_completo)}</span></div><div class="dato"><b>Cédula</b><span>${esc(item.cedula)}</span></div>
-    <div class="dato"><b>Seccional</b><span>${esc(item.seccional)}</span></div><div class="dato"><b>Cargo</b><span>${esc(item.cargo)}</span></div>
-    <div class="dato"><b>Fecha de afiliación</b><span>${fecha(item.fecha_afiliacion)}</span></div><div class="dato"><b>Código</b><span>${esc(item.codigo)}</span></div>
-    <div class="dato"><b>Emitida</b><span>${fecha(item.emitida_en)}</span></div><div class="dato"><b>Válida hasta</b><span>${fecha(item.vence_en)}</span></div>`;}
-   box.after(wrap);
- }catch(e){box.className="estado invalida";box.textContent="No fue posible realizar la verificación.";console.error(e);}
-}
+<!doctype html><html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Verificación de Constancia — SINTRAINCES</title><link rel="stylesheet" href="admin.css?v=1.45"><script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script><script src="config.js?v=1.45"></script></head><body><main style="max-width:760px;margin:40px auto;padding:20px"><div style="text-align:center;margin-bottom:18px"><img src="assets/sintrainces.png" alt="SINTRAINCES" style="max-width:260px;height:auto"></div><div class="panel" id="resultado"><h1>Verificación de constancia</h1><p>Consultando código…</p></div></main><script>
+const SUPABASE_URL="https://patlltngoqmmiqwkfmjj.supabase.co";
+const SUPABASE_KEY="sb_publishable_YHHWHax1U8gisM2vEIQgOg_WcGHGPr4";
+const params=new URLSearchParams(location.search);
+const codigo=(params.get("codigo")||"").trim();
+function esc(v){return String(v??"").replace(/[&<>"']/g,m=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#039;"}[m]));}
+function fecha(v){if(!v)return "—";const s=String(v).slice(0,10);const m=s.match(/^(\d{4})-(\d{2})-(\d{2})$/);if(m)return `${m[3]}/${m[2]}/${m[1]}`;const d=new Date(v);return isNaN(d)?String(v):d.toLocaleDateString("es-VE",{day:"2-digit",month:"2-digit",year:"numeric"});}
+async function rpc(nombre,p_codigo){const r=await fetch(`${SUPABASE_URL}/rest/v1/rpc/${nombre}?v=20260927`,{method:"POST",cache:"no-store",headers:{"apikey":SUPABASE_KEY,"Authorization":"Bearer "+SUPABASE_KEY,"Content-Type":"application/json","Accept":"application/json"},body:JSON.stringify({p_codigo:String(p_codigo).trim()})});let data=null;try{data=await r.json();}catch{}if(!r.ok)throw new Error(data?.message||data?.hint||`HTTP ${r.status}`);return Array.isArray(data)?data[0]:data;}
+async function verificar(){const box=document.getElementById("resultado");if(!codigo){box.innerHTML="<h2>Constancia no encontrada</h2><p>No se recibió un código de verificación.</p>";return;}try{const item=await rpc("verificar_constancia_dirigente",codigo);if(!item){box.innerHTML=`<h2>Constancia no encontrada</h2><p>Código consultado: <b>${esc(codigo)}</b></p>`;return;}const valida=!!item.valida;box.innerHTML=`<h2>${valida?"✓ CONSTANCIA VÁLIDA":"✕ CONSTANCIA VENCIDA O NO VÁLIDA"}</h2><div class="datos"><div class="dato"><b>Dirigente</b><span>${esc(item.nombre_completo)}</span></div><div class="dato"><b>Cédula</b><span>${esc(item.cedula)}</span></div><div class="dato"><b>Órgano</b><span>${esc(item.organo)}</span></div><div class="dato"><b>Cargo</b><span>${esc(item.cargo)}</span></div><div class="dato"><b>Seccional</b><span>${esc(item.seccional||"—")}</span></div><div class="dato"><b>Inicio de gestión</b><span>${fecha(item.fecha_inicio_gestion)}</span></div><div class="dato"><b>Código</b><span>${esc(item.codigo)}</span></div><div class="dato"><b>Emitida</b><span>${fecha(item.emitida_en)}</span></div><div class="dato"><b>Válida hasta</b><span>${fecha(item.vence_en)}</span></div></div>`;}catch(e){box.innerHTML=`<h2>❌ No fue posible verificar la constancia</h2><p>${esc(e.message||e)}</p>`;}}
 verificar();
 </script></body></html>
