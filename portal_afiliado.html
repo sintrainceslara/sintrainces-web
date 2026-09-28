@@ -119,11 +119,42 @@ body{background:#f4f7fb}.portal{max-width:1080px;margin:24px auto;padding:16px}.
 
       <section class="card">
         <h2>Solicitar corrección de datos</h2>
-        <p class="muted">Las modificaciones de datos sensibles deben ser revisadas por SINTRAINCES.</p>
+        <p class="muted">Selecciona el dato que deseas corregir. La modificación no se aplicará automáticamente: será revisada por SINTRAINCES.</p>
         <form id="solicitudForm">
-          <label>Asunto<input id="sAsunto" required placeholder="Ej.: corregir número telefónico"></label>
-          <label>Detalle<textarea id="sDetalle" required placeholder="Describe la corrección que deseas solicitar"></textarea></label>
-          <div class="actions"><button class="secondary">Enviar solicitud</button></div>
+          <div class="formgrid">
+            <label>Dato a corregir
+              <select id="sCampo" required>
+                <option value="">Seleccione</option>
+                <option value="primer_nombre">Primer nombre</option>
+                <option value="segundo_nombre">Segundo nombre</option>
+                <option value="primer_apellido">Primer apellido</option>
+                <option value="segundo_apellido">Segundo apellido</option>
+                <option value="sexo">Sexo</option>
+                <option value="fecha_nacimiento">Fecha de nacimiento</option>
+                <option value="telefono">Teléfono</option>
+                <option value="correo_electronico">Correo electrónico</option>
+                <option value="direccion">Dirección</option>
+                <option value="ciudad">Ciudad</option>
+                <option value="cfs_id">Centro de Formación (CFS)</option>
+              </select>
+            </label>
+            <label id="sValorWrap">Nuevo valor
+              <input id="sValor" required placeholder="Indique el nuevo valor solicitado">
+            </label>
+            <label id="sFechaWrap" class="hidden">Nueva fecha de nacimiento
+              <input id="sFecha" type="date">
+            </label>
+            <label id="sSexoWrap" class="hidden">Nuevo sexo
+              <select id="sSexo"><option value="">Seleccione</option><option value="F">Femenino</option><option value="M">Masculino</option></select>
+            </label>
+            <label id="sCfsWrap" class="hidden">Nuevo CFS
+              <select id="sCfs"></select>
+            </label>
+            <label class="full">Motivo de la corrección
+              <textarea id="sDetalle" required maxlength="1500" placeholder="Explique por qué solicita este cambio y, si corresponde, indique la información que lo respalda."></textarea>
+            </label>
+          </div>
+          <div class="actions"><button>Enviar solicitud de corrección</button></div>
           <div id="solMsg" class="msg"></div>
         </form>
         <div id="solicitudes"></div>
@@ -225,6 +256,7 @@ async function pintar(){
     <div class="dato"><b>Dirección</b>${esc(afiliado.direccion||'No registrada')}</div>
     <div class="dato"><b>Ciudad</b>${esc(afiliado.ciudad||'No registrada')}</div>`;
   $('rCfs').value=cfs||'No registrado'; $('rCiudad').value=afiliado.ciudad||'No registrada';
+  await cargarCfsSolicitud(sec);
   await cargarConstancias(sec);
   await cargarSolicitudes();
   await cargarReclamos();
@@ -237,9 +269,16 @@ async function cargarConstancias(sec){
   if(error){$('constancias').innerHTML='';return;}
   $('constancias').innerHTML='<h3 style="font-size:15px;margin-bottom:8px">Mis constancias</h3>'+((data||[]).map(x=>`<div class="constancia-row"><span><b>${esc(x.codigo)}</b><br>Emitida ${fechaHora(x.emitida_en)} · válida hasta ${fechaHora(x.vence_en)}</span><button class="secondary" onclick="generarDesdeRegistro(${x.id})">Generar PDF</button></div>`).join('')||'<div class="muted">Aún no tienes constancias emitidas.</div>');
 }
+async function cargarCfsSolicitud(secNombre){
+  const {data,error}=await sb.from('cfs').select('id,nombre,codigo,seccional_id,activo').eq('seccional_id',afiliado.seccional_id).eq('activo',true).order('nombre',{ascending:true});
+  const el=$('sCfs'); if(!el)return; if(error){el.innerHTML='<option value="">No se pudieron cargar los CFS</option>';return;} el.innerHTML='<option value="">Seleccione CFS</option>'+((data||[]).map(x=>`<option value="${esc(x.id)}">${esc(x.nombre)}${x.codigo?' — '+esc(x.codigo):''}</option>`).join(''));
+}
+const CORR_CAMPOS_PORTAL={primer_nombre:'Primer nombre',segundo_nombre:'Segundo nombre',primer_apellido:'Primer apellido',segundo_apellido:'Segundo apellido',sexo:'Sexo',fecha_nacimiento:'Fecha de nacimiento',telefono:'Teléfono',correo_electronico:'Correo electrónico',direccion:'Dirección',ciudad:'Ciudad',cfs_id:'Centro de Formación (CFS)'};
+const CORR_ESTADOS_PORTAL={pendiente:'Pendiente',aprobada:'Aprobada',rechazada:'Rechazada'};
 async function cargarSolicitudes(){
-  const {data}=await sb.from('solicitudes_afiliado').select('id,asunto,detalle,estado,created_at,respuesta').eq('afiliado_id',afiliado.id).order('created_at',{ascending:false}).limit(8);
-  $('solicitudes').innerHTML='<div class="solicitud"><h3 style="font-size:15px">Mis solicitudes</h3>'+((data||[]).map(x=>`<div class="dato"><b>${esc(x.asunto||'Solicitud')} · ${esc(x.estado)}</b>${esc(x.detalle||'')}<br><small>${fechaHora(x.created_at)}${x.respuesta?' · Respuesta: '+esc(x.respuesta):''}</small></div>`).join('')||'<div class="muted">No hay solicitudes registradas.</div>')+'</div>';
+  const {data,error}=await sb.from('solicitudes_correccion_datos').select('id,campo,valor_anterior,valor_solicitado,detalle,estado,respuesta_admin,created_at,revisado_en').eq('afiliado_id',afiliado.id).order('created_at',{ascending:false}).limit(10);
+  if(error){$('solicitudes').innerHTML='<div class="muted">No se pudieron cargar tus solicitudes de corrección.</div>';return;}
+  $('solicitudes').innerHTML='<div class="solicitud"><h3 style="font-size:15px">Mis solicitudes de corrección</h3>'+((data||[]).map(x=>`<div class="dato"><b>${esc(CORR_CAMPOS_PORTAL[x.campo]||x.campo)} · ${esc(CORR_ESTADOS_PORTAL[x.estado]||x.estado)}</b><div style="margin-top:5px"><span class="muted">Actual:</span> ${esc(x.valor_anterior||'—')}<br><span class="muted">Solicitado:</span> ${esc(x.valor_solicitado||'—')}</div><small>${fechaHora(x.created_at)}${x.respuesta_admin?' · Respuesta: '+esc(x.respuesta_admin):''}</small></div>`).join('')||'<div class="muted">No hay solicitudes de corrección registradas.</div>')+'</div>';
 }
 function etiquetaCategoria(v){return ({laboral:'Laboral',salarial_beneficios:'Salarial / beneficios',contratacion_colectiva:'Contratación colectiva',seguridad_salud:'Seguridad y salud laboral',jornada_horario:'Jornada / horario',discriminacion_acoso:'Discriminación o acoso',jubilacion_pension:'Jubilación / pensión',otro:'Otro'})[v]||v||''}
 function etiquetaTipo(v){return v==='sugerencia'?'Sugerencia':'Reclamo'}
@@ -258,7 +297,8 @@ $('passwordRecoveryForm').onsubmit=async e=>{e.preventDefault();setMsg('password
 $('logoutBtn').onclick=async()=>{await sb.auth.signOut();location.reload()};
 async function iniciarPortal(){ $('authView').classList.add('hidden');$('appView').classList.remove('hidden');try{await cargarPerfil()}catch(e){$('appView').classList.add('hidden');$('authView').classList.remove('hidden');setMsg('authMsg',e.message||String(e))}}
 $('reclamoForm').onsubmit=async e=>{e.preventDefault();setMsg('reclamoMsg','Enviando…');try{const payload={afiliado_id:afiliado.id,tipo:$('rTipo').value,categoria:$('rCategoria').value,asunto:$('rAsunto').value.trim(),descripcion:$('rDescripcion').value.trim(),fecha_hecho:$('rFechaHecho').value||null,cfs_id:afiliado.cfs_id||null,ciudad:afiliado.ciudad||null,sugerencia:$('rSugerencia').value.trim()};const {error}=await sb.from('reclamos_sugerencias').insert(payload);if(error)throw error;const cfsActual=$('rCfs').value, ciudadActual=$('rCiudad').value;$('reclamoForm').reset();$('rCfs').value=cfsActual;$('rCiudad').value=ciudadActual;setMsg('reclamoMsg','Reclamo o sugerencia registrado correctamente.',true);await cargarReclamos()}catch(e){setMsg('reclamoMsg',e.message||String(e))}};
-$('solicitudForm').onsubmit=async e=>{e.preventDefault();setMsg('solMsg','Enviando…');try{const {error}=await sb.from('solicitudes_afiliado').insert({afiliado_id:afiliado.id,tipo:'solicitud',asunto:$('sAsunto').value.trim(),detalle:$('sDetalle').value.trim()});if(error)throw error;$('solicitudForm').reset();setMsg('solMsg','Solicitud enviada correctamente.',true);await cargarSolicitudes()}catch(e){setMsg('solMsg',e.message||String(e))}};
+$('sCampo').onchange=()=>{const c=$('sCampo').value;$('sValorWrap').classList.toggle('hidden',c==='fecha_nacimiento'||c==='sexo'||c==='cfs_id');$('sFechaWrap').classList.toggle('hidden',c!=='fecha_nacimiento');$('sSexoWrap').classList.toggle('hidden',c!=='sexo');$('sCfsWrap').classList.toggle('hidden',c!=='cfs_id');$('sValor').required=!(c==='fecha_nacimiento'||c==='sexo'||c==='cfs_id');$('sFecha').required=c==='fecha_nacimiento';$('sSexo').required=c==='sexo';$('sCfs').required=c==='cfs_id';};
+$('solicitudForm').onsubmit=async e=>{e.preventDefault();setMsg('solMsg','Enviando…');try{const campo=$('sCampo').value;if(!campo)throw new Error('Seleccione el dato que desea corregir.');let valor=$('sValor').value.trim();if(campo==='fecha_nacimiento')valor=$('sFecha').value;if(campo==='sexo')valor=$('sSexo').value;if(campo==='cfs_id')valor=$('sCfs').value;if(!valor)throw new Error('Indique el nuevo valor solicitado.');const {error}=await sb.rpc('crear_solicitud_correccion',{p_campo:campo,p_valor_solicitado:valor,p_detalle:$('sDetalle').value.trim()});if(error)throw error;$('solicitudForm').reset();$('sCampo').dispatchEvent(new Event('change'));setMsg('solMsg','Solicitud de corrección enviada correctamente. Queda pendiente de revisión por SINTRAINCES.',true);await cargarSolicitudes()}catch(e){setMsg('solMsg',e.message||String(e))}};
 async function imgData(url){const r=await fetch(url);const b=await r.blob();return await new Promise((res,rej)=>{const fr=new FileReader();fr.onload=()=>res(fr.result);fr.onerror=rej;fr.readAsDataURL(b)})}
 function fit(iw,ih,mw,mh){const k=Math.min(mw/iw,mh/ih);return [iw*k,ih*k]}
 async function imageSize(url){const im=new Image();im.src=url;await im.decode();return [im.naturalWidth,im.naturalHeight]}
