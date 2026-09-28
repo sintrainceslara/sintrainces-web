@@ -1,4 +1,4 @@
-/* SINTRAINCES ADMIN v1.48 */
+/* SINTRAINCES ADMIN v1.50 */
 /* SINTRAINCES v1.38.4 — módulo de dirigencia y CFS */
 let sb = null;
 let perfil = null;
@@ -174,7 +174,7 @@ async function render(view) {
   else if(view==="afiliados") await afiliados(m);
   else if(view==="reportes") reportes(m);
   else if(view==="reclamos") await reclamosAdmin(m);
-  else if(view==="solicitudes") solicitudes(m);
+  else if(view==="solicitudes") await solicitudes(m);
   else if(view==="usuarios") usuarios(m);
   else if(view==="organizacion") await organizacion(m);
   else if(view==="auditoria") auditoria(m);
@@ -578,7 +578,76 @@ async function guardarReclamoAdmin(id){
   }catch(e){msg.textContent="No se pudo guardar: "+(e.message||e);msg.style.color="#b42318";}
 }
 
-function solicitudes(m){m.innerHTML=title("Solicitudes","Aprobación de afiliaciones y atención de solicitudes.")+`<div class="panel"><p>El módulo se implementará después de completar la consulta y ficha de afiliados.</p></div>`;}
+const CORR_CAMPOS = {
+  primer_nombre:"Primer nombre", segundo_nombre:"Segundo nombre", primer_apellido:"Primer apellido", segundo_apellido:"Segundo apellido",
+  sexo:"Sexo", fecha_nacimiento:"Fecha de nacimiento", telefono:"Teléfono", correo_electronico:"Correo electrónico",
+  direccion:"Dirección", ciudad:"Ciudad", cfs_id:"Centro de Formación (CFS)"
+};
+const CORR_ESTADOS = {pendiente:"Pendiente", aprobada:"Aprobada", rechazada:"Rechazada"};
+function estadoCorreccionLabel(v){return CORR_ESTADOS[v]||v||"—";}
+function nombreCompletoSimple(a){return [a?.primer_nombre,a?.segundo_nombre,a?.primer_apellido,a?.segundo_apellido].filter(Boolean).join(" ").trim()||"—";}
+function mostrarValorCorreccion(r,campo,valor){
+  if(campo!=="cfs_id") return valor || "—";
+  if(!valor) return "—";
+  const c=(catalogos.cfs||[]).find(x=>String(x.id)===String(valor));
+  return c ? `${c.nombre}${c.codigo?` (${c.codigo})`:""}` : `CFS #${valor}`;
+}
+async function solicitudes(m){
+  m.innerHTML=title("Solicitudes","Revisión y decisión de solicitudes de corrección de datos de los afiliados.")+`<div class="panel">
+    <div class="filters affiliates-filters">
+      <label>Buscar por cédula o nombre<input id="qCorrTexto" placeholder="Ej.: 1510512 o Pérez"></label>
+      <label>Seccional<select id="qCorrSeccional"></select></label>
+      <label>Estado<select id="qCorrEstado"><option value="">Todos</option><option value="pendiente">Pendientes</option><option value="aprobada">Aprobadas</option><option value="rechazada">Rechazadas</option></select></label>
+      <label>Dato<select id="qCorrCampo"><option value="">Todos</option>${Object.entries(CORR_CAMPOS).map(([k,v])=>`<option value="${k}">${esc(v)}</option>`).join("")}</select></label>
+    </div>
+    <div class="filter-actions"><button id="buscarCorrecciones">Consultar</button><button id="limpiarCorrecciones" class="secondary">Limpiar</button><span id="corrInfo" class="muted"></span></div>
+    <div id="correccionesTabla" class="tablewrap"><div class="loading">Consultando solicitudes…</div></div>
+  </div><div id="correccionDetalle" class="panel hidden"></div>`;
+  await cargarCatalogos();
+  fillSelect("qCorrSeccional",catalogos.seccionales,"Todas las seccionales");
+  if(perfil?.rol==="admin_seccional"){ $("qCorrSeccional").value=String(perfil.seccional_id||""); $("qCorrSeccional").disabled=true; }
+  $("buscarCorrecciones").onclick=cargarCorreccionesAdmin;
+  $("limpiarCorrecciones").onclick=()=>{ $("qCorrTexto").value=""; $("qCorrEstado").value=""; $("qCorrCampo").value=""; if(perfil?.rol==="admin_seccional")$("qCorrSeccional").value=String(perfil.seccional_id||""); else $("qCorrSeccional").value=""; cargarCorreccionesAdmin(); };
+  await cargarCorreccionesAdmin();
+}
+async function cargarCorreccionesAdmin(){
+  const box=$("correccionesTabla"); if(!box)return; box.innerHTML='<div class="loading">Consultando solicitudes…</div>';
+  const q=new URLSearchParams({select:"id,afiliado_id,campo,valor_anterior,valor_solicitado,detalle,estado,respuesta_admin,creado_por,revisado_por,created_at,updated_at,revisado_en,afiliados(id,cedula,nacionalidad,primer_apellido,segundo_apellido,primer_nombre,segundo_nombre,seccional_id,seccionales(id,nombre))",order:"created_at.desc",limit:"200"});
+  const sec=$("qCorrSeccional")?.value, estado=$("qCorrEstado")?.value, campo=$("qCorrCampo")?.value;
+  if(estado)q.set("estado",`eq.${estado}`); if(campo)q.set("campo",`eq.${campo}`);
+  if(perfil?.rol==="admin_seccional")q.set("afiliados.seccional_id",`eq.${perfil.seccional_id}`);
+  try{
+    const {data}=await api("/rest/v1/solicitudes_correccion_datos?"+q.toString()); let rows=Array.isArray(data)?data:[];
+    if(sec && perfil?.rol!=="admin_seccional") rows=rows.filter(r=>String(r.afiliados?.seccional_id||"")===String(sec));
+    const term=($("qCorrTexto")?.value||"").trim().toLowerCase();
+    if(term)rows=rows.filter(r=>String(r.afiliados?.cedula||"").toLowerCase().includes(term)||nombreCompletoSimple(r.afiliados).toLowerCase().includes(term));
+    $("corrInfo").textContent=`${rows.length} solicitud(es) mostrada(s)`;
+    if(!rows.length){box.innerHTML='<div class="empty">No hay solicitudes con los filtros seleccionados.</div>';return;}
+    box.innerHTML=`<table><thead><tr><th>Fecha</th><th>Afiliado</th><th>Seccional</th><th>Dato</th><th>Actual</th><th>Solicitado</th><th>Estado</th><th></th></tr></thead><tbody>${rows.map(r=>`<tr><td>${formatDate(r.created_at)}</td><td>${esc(nombreCompletoSimple(r.afiliados))}<br><span class="muted">${esc(r.afiliados?.nacionalidad||"")}-${esc(r.afiliados?.cedula||"—")}</span></td><td>${esc(r.afiliados?.seccionales?.nombre||"—")}</td><td>${esc(CORR_CAMPOS[r.campo]||r.campo)}</td><td>${esc(mostrarValorCorreccion(r,r.campo,r.valor_anterior))}</td><td>${esc(mostrarValorCorreccion(r,r.campo,r.valor_solicitado))}</td><td><span class="status-pill status-${esc(r.estado)}">${esc(estadoCorreccionLabel(r.estado))}</span></td><td><button class="small" data-corr="${esc(r.id)}">${r.estado==='pendiente'?'Revisar':'Ver detalle'}</button></td></tr>`).join("")}</tbody></table>`;
+    box.querySelectorAll("[data-corr]").forEach(b=>b.onclick=()=>abrirCorreccionAdmin(rows.find(x=>String(x.id)===String(b.dataset.corr))));
+  }catch(e){box.innerHTML=`<div class="msg">No se pudieron consultar las solicitudes: ${esc(e.message||e)}</div>`;$("corrInfo").textContent="Error de consulta";}
+}
+function abrirCorreccionAdmin(r){
+  if(!r)return; const d=$("correccionDetalle"); d.classList.remove("hidden");
+  const editable=r.estado==='pendiente';
+  d.innerHTML=`<div class="section-head"><div><h2>${esc(CORR_CAMPOS[r.campo]||r.campo)}</h2><p>${esc(nombreCompletoSimple(r.afiliados))} · C.I. ${esc((r.afiliados?.nacionalidad||"")+"-"+(r.afiliados?.cedula||"—"))} · ${esc(r.afiliados?.seccionales?.nombre||"—")}</p></div><button id="cerrarDetalleCorr" class="secondary">Cerrar detalle</button></div>
+  <div class="edit-grid"><div class="dato"><b>Dato actual</b>${esc(mostrarValorCorreccion(r,r.campo,r.valor_anterior))}</div><div class="dato"><b>Cambio solicitado</b>${esc(mostrarValorCorreccion(r,r.campo,r.valor_solicitado))}</div><div class="dato full"><b>Motivo indicado por el afiliado</b>${esc(r.detalle||"").replace(/\n/g,"<br>")}</div><div class="dato"><b>Estado</b>${esc(estadoCorreccionLabel(r.estado))}</div><div class="dato"><b>Fecha de solicitud</b>${esc(new Date(r.created_at).toLocaleString("es-VE"))}</div></div>
+  ${editable?`<div class="filter-actions"><button id="aprobarCorreccion">Aprobar cambio</button><button id="rechazarCorreccion" class="secondary">Rechazar solicitud</button><span id="corrDecisionMsg" class="muted"></span></div>`:`<div class="panel" style="margin-top:12px"><b>Respuesta administrativa</b><p>${esc(r.respuesta_admin||"Sin respuesta registrada.")}</p>${r.revisado_en?`<small class="muted">Revisada: ${esc(new Date(r.revisado_en).toLocaleString("es-VE"))}</small>`:""}</div>`}`;
+  $("cerrarDetalleCorr").onclick=()=>d.classList.add("hidden");
+  if(editable){ $("aprobarCorreccion").onclick=()=>aprobarCorreccionAdmin(r.id); $("rechazarCorreccion").onclick=()=>rechazarCorreccionAdmin(r.id); }
+}
+async function aprobarCorreccionAdmin(id){
+  const msg=$("corrDecisionMsg"); if(msg)msg.textContent="Aprobando…";
+  try{ const {data,error}=await sb.rpc("aprobar_solicitud_correccion",{p_solicitud_id:id}); if(error)throw error; if(msg){msg.textContent="Cambio aprobado y afiliado actualizado correctamente.";msg.style.color="#027a48";} await cargarCorreccionesAdmin(); }
+  catch(e){if(msg){msg.textContent="No se pudo aprobar: "+(e.message||e);msg.style.color="#b42318";}}
+}
+async function rechazarCorreccionAdmin(id){
+  const motivo=prompt("Indique el motivo del rechazo de la solicitud:"); if(motivo===null)return; if(!motivo.trim()){alert("Debe indicar el motivo del rechazo.");return;}
+  const msg=$("corrDecisionMsg"); if(msg)msg.textContent="Rechazando…";
+  try{const {data,error}=await sb.rpc("rechazar_solicitud_correccion",{p_solicitud_id:id,p_respuesta:motivo.trim()});if(error)throw error;if(msg){msg.textContent="Solicitud rechazada correctamente.";msg.style.color="#027a48";}await cargarCorreccionesAdmin();}
+  catch(e){if(msg){msg.textContent="No se pudo rechazar: "+(e.message||e);msg.style.color="#b42318";}}
+}
+
 async function usuarios(m){
   if(perfil?.rol!=="admin_nacional"){
     m.innerHTML=title("Usuarios","Administración de usuarios y permisos.")+`<div class="panel"><div class="notice">Solo el Administrador nacional puede administrar usuarios y permisos.</div></div>`;
