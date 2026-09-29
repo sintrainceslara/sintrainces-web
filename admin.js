@@ -1,4 +1,4 @@
-/* SINTRAINCES ADMIN v1.50 */
+/* SINTRAINCES ADMIN v1.50.3 */
 /* SINTRAINCES v1.38.4 — módulo de dirigencia y CFS */
 let sb = null;
 let perfil = null;
@@ -881,11 +881,12 @@ function editorDirigencia(row){
   const inicioActual=row?.fecha_inicio_gestion?String(row.fecha_inicio_gestion).slice(0,10):"";
   box.innerHTML=`<div class="section-head"><div>${title(isNew?"Nuevo cargo sindical":"Gestionar cargo sindical",isNew?"Crea una posición; si no se asigna afiliado quedará VACANTE.":"Asigna, actualiza o libera el dirigente vinculado a este cargo.")}</div><button id="cerrarDirEditor" class="secondary">Cerrar</button></div>
   <div class="edit-grid">
-    <label>Órgano<select id="dEditOrgan"><option value="CEN">Comité Ejecutivo Nacional</option><option value="TRIBUNAL">Tribunal Disciplinario</option><option value="SECCIONAL">Directiva seccional</option></select></label>
-    <label>Seccional<select id="dEditSec"></select></label>
-    <label>Cargo<input id="dEditCargo" placeholder="Nombre del cargo"></label>
+    <label>Órgano<select id="dEditOrgan" ${!isNew?'disabled':''}><option value="CEN">Comité Ejecutivo Nacional</option><option value="TRIBUNAL">Tribunal Disciplinario</option><option value="SECCIONAL">Directiva seccional</option></select></label>
+    <label>Seccional<select id="dEditSec" ${!isNew?'disabled':''}></select></label>
+    <label>Cargo<input id="dEditCargo" placeholder="Nombre del cargo" ${!isNew?'readonly':''}></label>
     ${isNew?`<label>Cédula del afiliado (opcional)<input id="dEditCedula" placeholder="Dejar vacío para VACANTE"></label>`:`<label>Cédula del afiliado<input id="dEditCedula" value="${esc(row.afiliados?.cedula||"")}" placeholder="Dejar vacío para VACANTE"></label>`}
     <label>Inicio de gestión<input id="dEditInicio" type="date" value="${esc(inicioActual)}" ${!ocupado&&isNew?'disabled':''}></label>
+    ${!isNew&&ocupado?`<label>Fecha de baja / fin de gestión<input id="dFechaFinGestion" type="date" value="${esc(row.fecha_fin_gestion?String(row.fecha_fin_gestion).slice(0,10):new Date().toISOString().slice(0,10))}"></label>`:""}
   </div>
   <div class="panel" style="margin-top:12px"><div id="dAfiliadoEncontrado" class="muted">${ocupado?`Dirigente actual: <b>${esc(nombreAfiliadoDir(row.afiliados))}</b> — C.I. ${esc(row.afiliados?.cedula||"")}<br>Inicio de gestión: <b>${esc(formatDate(row.fecha_inicio_gestion)||"No registrado")}</b>`:"Cargo actualmente VACANTE."}</div></div>
   <div class="filter-actions"><button id="dBuscarAfiliado">Buscar afiliado</button><button id="dGuardarCargo">${isNew?"Crear cargo":"Guardar cambios"}</button><button id="dLiberarCargo" class="secondary" ${isNew||!ocupado?"disabled":""}>Dejar VACANTE</button><span id="dEditorMsg" class="muted"></span></div>`;
@@ -909,9 +910,10 @@ async function guardarDirigencia(row){
     if(!cargo)throw new Error("Indique el cargo."); if(organ==="SECCIONAL"&&!sec)throw new Error("Seleccione la seccional.");
     let afiliado_id=null;
     if(ced){ await buscarAfiliadoDir(); afiliado_id=window._dirAfiliadoEncontrado?.id||null; if(!afiliado_id)throw new Error("Debe indicar una cédula de afiliado válida."); if(!inicio)throw new Error("Indique la fecha de inicio de la gestión."); }
-    const body={organ,seccional_id:organ==="SECCIONAL"?Number(sec):null,cargo,afiliado_id,fecha_inicio_gestion:afiliado_id?(inicio||(row?.fecha_inicio_gestion||null)):(row?.fecha_inicio_gestion||null),fecha_fin_gestion:afiliado_id?null:(row?.afiliado_id?new Date().toISOString().slice(0,10):(row?.fecha_fin_gestion||null)),activo:true,updated_at:new Date().toISOString()};
+    const fechaFinSeleccionada=$("dFechaFinGestion")?.value||null;
+    const body={organ,seccional_id:organ==="SECCIONAL"?Number(sec):null,cargo,afiliado_id,fecha_inicio_gestion:afiliado_id?(inicio||(row?.fecha_inicio_gestion||null)):(row?.fecha_inicio_gestion||null),fecha_fin_gestion:afiliado_id?null:(row?.afiliado_id?(fechaFinSeleccionada||new Date().toISOString().slice(0,10)):(row?.fecha_fin_gestion||null)),activo:true,updated_at:new Date().toISOString()};
     if(row){
-      if(!afiliado_id && row.afiliado_id) body.fecha_fin_gestion=new Date().toISOString().slice(0,10);
+      if(!afiliado_id && row.afiliado_id) body.fecha_fin_gestion=fechaFinSeleccionada||new Date().toISOString().slice(0,10);
       await api(`/rest/v1/dirigencia_sindical?id=eq.${row.id}`,{method:"PATCH",headers:{"Content-Type":"application/json","Prefer":"return=minimal"},body:JSON.stringify(body)});
       msg.textContent="Cargo actualizado correctamente.";
     }else{await api("/rest/v1/dirigencia_sindical",{method:"POST",headers:{"Content-Type":"application/json","Prefer":"return=minimal"},body:JSON.stringify(body)});msg.textContent="Cargo creado correctamente.";}
@@ -920,9 +922,12 @@ async function guardarDirigencia(row){
 }
 
 async function liberarDirigencia(row){
-  if(!row?.id)return; if(!confirm("¿Desea dejar este cargo en estado VACANTE? Se registrará hoy como fecha de fin de gestión."))return;
+  if(!row?.id)return;
+  const fecha=$("dFechaFinGestion")?.value||new Date().toISOString().slice(0,10);
+  if(!fecha){alert("Indique la fecha de baja / fin de gestión.");return;}
+  if(!confirm(`¿Desea dejar este cargo en estado VACANTE con fecha de fin de gestión ${formatDate(fecha)}?`))return;
   const msg=$("dEditorMsg"); msg.textContent="Guardando…";
-  try{await api(`/rest/v1/dirigencia_sindical?id=eq.${row.id}`,{method:"PATCH",headers:{"Content-Type":"application/json","Prefer":"return=minimal"},body:JSON.stringify({afiliado_id:null,fecha_fin_gestion:new Date().toISOString().slice(0,10),updated_at:new Date().toISOString()})});msg.textContent="El cargo quedó VACANTE y se registró la fecha de fin de gestión.";await cargarDirigenciaTabla();}
+  try{await api(`/rest/v1/dirigencia_sindical?id=eq.${row.id}`,{method:"PATCH",headers:{"Content-Type":"application/json","Prefer":"return=minimal"},body:JSON.stringify({afiliado_id:null,fecha_fin_gestion:fecha,updated_at:new Date().toISOString()})});msg.textContent="El cargo quedó VACANTE y se registró la fecha de fin de gestión.";await cargarDirigenciaTabla();}
   catch(e){msg.textContent="No se pudo liberar el cargo: "+(e.message||e);msg.style.color="#b42318";}
 }
 
@@ -1074,7 +1079,7 @@ async function cargarAuditoriaReal(){
 function showPasswordPanel(){$("passwordPanel").classList.remove("hidden");$("newPassword").focus();}
 function hidePasswordPanel(){$("passwordPanel").classList.add("hidden");$("passwordMsg").textContent="";$('changePasswordForm').reset();}
 async function changePassword(ev){ev.preventDefault();const p1=$("newPassword").value,p2=$("confirmPassword").value;if(p1.length<8){$("passwordMsg").textContent="La nueva contraseña debe tener al menos 8 caracteres.";return;}if(p1!==p2){$("passwordMsg").textContent="Las contraseñas no coinciden.";return;}$("passwordMsg").textContent="Guardando…";const {error}=await sb.auth.updateUser({password:p1});if(error){$("passwordMsg").textContent=error.message;return;}const {error:profileError}=await sb.rpc("marcar_clave_actualizada");if(profileError){$("passwordMsg").textContent="Contraseña cambiada, pero no se pudo actualizar el estado del perfil: "+profileError.message;return;}perfil.debe_cambiar_clave=false;hidePasswordPanel();}
-async function logout(){try{if(sb)await sb.auth.signOut({scope:"local"});}catch(e){}window.SINTRAINCES_ACCESS_TOKEN=null;location.href="index.html";}
+async function logout(){try{if(sb)await sb.auth.signOut({scope:"local"});}catch(e){}window.SINTRAINCES_ACCESS_TOKEN=null;location.reload();}
 
 document.addEventListener("DOMContentLoaded",async()=>{
   try{cfg();}catch(e){showLoginMessage(e.message+" Copie config.example.js como config.js.");return;}
