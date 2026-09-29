@@ -925,7 +925,6 @@ async function liberarDirigencia(row){
   if(!row?.id)return;
   const fecha=$("dFechaFinGestion")?.value||new Date().toISOString().slice(0,10);
   if(!fecha){alert("Indique la fecha de baja / fin de gestión.");return;}
-  if(!confirm(`¿Desea dejar este cargo en estado VACANTE con fecha de fin de gestión ${formatDate(fecha)}?`))return;
   const msg=$("dEditorMsg"); msg.textContent="Guardando…";
   try{await api(`/rest/v1/dirigencia_sindical?id=eq.${row.id}`,{method:"PATCH",headers:{"Content-Type":"application/json","Prefer":"return=minimal"},body:JSON.stringify({afiliado_id:null,fecha_fin_gestion:fecha,updated_at:new Date().toISOString()})});msg.textContent="El cargo quedó VACANTE y se registró la fecha de fin de gestión.";await cargarDirigenciaTabla();}
   catch(e){msg.textContent="No se pudo liberar el cargo: "+(e.message||e);msg.style.color="#b42318";}
