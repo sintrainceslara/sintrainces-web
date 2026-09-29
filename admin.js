@@ -1074,7 +1074,7 @@ async function cargarAuditoriaReal(){
 function showPasswordPanel(){$("passwordPanel").classList.remove("hidden");$("newPassword").focus();}
 function hidePasswordPanel(){$("passwordPanel").classList.add("hidden");$("passwordMsg").textContent="";$('changePasswordForm').reset();}
 async function changePassword(ev){ev.preventDefault();const p1=$("newPassword").value,p2=$("confirmPassword").value;if(p1.length<8){$("passwordMsg").textContent="La nueva contraseña debe tener al menos 8 caracteres.";return;}if(p1!==p2){$("passwordMsg").textContent="Las contraseñas no coinciden.";return;}$("passwordMsg").textContent="Guardando…";const {error}=await sb.auth.updateUser({password:p1});if(error){$("passwordMsg").textContent=error.message;return;}const {error:profileError}=await sb.rpc("marcar_clave_actualizada");if(profileError){$("passwordMsg").textContent="Contraseña cambiada, pero no se pudo actualizar el estado del perfil: "+profileError.message;return;}perfil.debe_cambiar_clave=false;hidePasswordPanel();}
-async function logout(){try{if(sb)await sb.auth.signOut({scope:"local"});}catch(e){}window.SINTRAINCES_ACCESS_TOKEN=null;location.reload();}
+async function logout(){try{if(sb)await sb.auth.signOut({scope:"local"});}catch(e){}window.SINTRAINCES_ACCESS_TOKEN=null;location.href="index.html";}
 
 document.addEventListener("DOMContentLoaded",async()=>{
   try{cfg();}catch(e){showLoginMessage(e.message+" Copie config.example.js como config.js.");return;}
