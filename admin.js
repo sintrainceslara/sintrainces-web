@@ -1,4 +1,4 @@
-/* SINTRAINCES ADMIN v1.50.4 */
+/* SINTRAINCES ADMIN v1.50.5 */
 /* SINTRAINCES v1.38.4 — módulo de dirigencia y CFS */
 let sb = null;
 let perfil = null;
@@ -421,6 +421,53 @@ async function reportes(m){
   $("limpiarReporte").onclick=limpiarReporteFiltros;
   $("imprimirReporte").onclick=()=>window.print();
   $("pdfReporte").onclick=()=>guardarReportePDF();
+
+  // Reportes especiales: cumpleaños y aniversarios de afiliación.
+  const ef = document.createElement("div");
+  ef.className = "panel";
+  ef.id = "efemeridesPanel";
+  ef.innerHTML = `
+    <h2 style="margin-top:0">🎂 Cumpleaños y 🎉 aniversarios de afiliación</h2>
+    <p class="muted">Consulte los afiliados por día, semana, mes o todo el año.</p>
+    <div class="filters affiliates-filters">
+      <label>Reporte
+        <select id="efTipo">
+          <option value="cumpleanos">🎂 Cumpleaños</option>
+          <option value="aniversarios">🎉 Aniversarios de afiliación</option>
+        </select>
+      </label>
+      <label>Período
+        <select id="efPeriodo">
+          <option value="dia">Hoy</option>
+          <option value="semana">Esta semana</option>
+          <option value="mes">Este mes</option>
+          <option value="anio">Todo el año</option>
+        </select>
+      </label>
+      <label>Seccional<select id="efSeccional"></select></label>
+      <label>CFS<select id="efCfs"></select></label>
+    </div>
+    <div class="filter-actions">
+      <button id="generarEfemerides">Generar reporte</button>
+      <button id="imprimirEfemerides" class="secondary">Imprimir</button>
+      <span id="efInfo" class="muted"></span>
+    </div>
+    <div id="efTabla" class="tablewrap"><div class="empty">Seleccione el tipo y período.</div></div>
+  `;
+  m.appendChild(ef);
+
+  fillSelect("efSeccional",catalogos.seccionales,"Todas las seccionales");
+  if(perfil?.rol==="admin_seccional"){
+    $("efSeccional").value=String(perfil.seccional_id||"");
+    $("efSeccional").disabled=true;
+    cfsForEfemerides(perfil.seccional_id);
+  } else {
+    cfsForEfemerides("");
+  }
+  $("efSeccional").addEventListener("change",e=>cfsForEfemerides(e.target.value));
+  $("generarEfemerides").onclick=generarReporteEfemerides;
+  $("imprimirEfemerides").onclick=()=>window.print();
+  await generarReporteEfemerides();
   await generarReporte();
 }
 function cfsForReport(id){const list=id?catalogos.cfs.filter(x=>String(x.seccional_id)===String(id)):catalogos.cfs;fillSelect("rCfs",list,"Todos los CFS");}
@@ -466,6 +513,129 @@ function limpiarReporteFiltros(){
   cfsForReport($("rSeccional").value);
   generarReporte();
 }
+
+function cfsForEfemerides(id){
+  const list=id?catalogos.cfs.filter(x=>String(x.seccional_id)===String(id)):catalogos.cfs;
+  fillSelect("efCfs",list,"Todos los CFS");
+}
+
+function fechaCalendarioLocal(yyyy,mm,dd){
+  return `${yyyy}-${String(mm).padStart(2,"0")}-${String(dd).padStart(2,"0")}`;
+}
+function inicioSemanaLunes(d){
+  const x=new Date(d.getFullYear(),d.getMonth(),d.getDate());
+  const day=x.getDay();
+  const diff=day===0?-6:1-day;
+  x.setDate(x.getDate()+diff);
+  return x;
+}
+function finSemanaLunes(d){
+  const x=inicioSemanaLunes(d);
+  x.setDate(x.getDate()+6);
+  return x;
+}
+function fechaDentroPeriodoEfemeride(fecha,periodo,hoy){
+  if(!fecha)return false;
+  const s=String(fecha).slice(0,10);
+  const parts=s.split("-").map(Number);
+  if(parts.length!==3 || !parts.every(Number.isFinite))return false;
+  const mm=parts[1], dd=parts[2];
+  if(periodo==="anio")return true;
+  if(periodo==="mes")return mm===hoy.getMonth()+1;
+  if(periodo==="dia")return mm===hoy.getMonth()+1 && dd===hoy.getDate();
+  if(periodo==="semana"){
+    const y=hoy.getFullYear();
+    const start=inicioSemanaLunes(hoy), end=finSemanaLunes(hoy);
+    const candidato=new Date(y,mm-1,dd);
+    return candidato>=start && candidato<=end;
+  }
+  return false;
+}
+function nombreCompletoAfiliado(a){
+  return `${a.primer_nombre||""} ${a.segundo_nombre||""} ${a.primer_apellido||""} ${a.segundo_apellido||""}`.replace(/\s+/g," ").trim();
+}
+function aniversarioAnios(fecha,hoy){
+  if(!fecha)return null;
+  const s=String(fecha).slice(0,10), y=Number(s.slice(0,4));
+  if(!y)return null;
+  let n=hoy.getFullYear()-y;
+  const mm=Number(s.slice(5,7)), dd=Number(s.slice(8,10));
+  if((hoy.getMonth()+1)<mm || ((hoy.getMonth()+1)===mm && hoy.getDate()<dd))n--;
+  return n>=0?n:null;
+}
+function ordenarEfemerides(rows,fechaKey){
+  return [...rows].sort((a,b)=>{
+    const da=String(a[fechaKey]||"").slice(5,10), db=String(b[fechaKey]||"").slice(5,10);
+    return da.localeCompare(db) || String(a.primer_apellido||"").localeCompare(String(b.primer_apellido||""),"es");
+  });
+}
+async function generarReporteEfemerides(){
+  const box=$("efTabla"); if(!box)return;
+  box.innerHTML=`<div class="loading">Generando reporte…</div>`;
+  const tipo=$("efTipo")?.value||"cumpleanos";
+  const periodo=$("efPeriodo")?.value||"dia";
+  const sec=$("efSeccional")?.value||"";
+  const cfs=$("efCfs")?.value||"";
+  const q=new URLSearchParams();
+  q.set("select","id,cedula,primer_apellido,segundo_apellido,primer_nombre,segundo_nombre,fecha_nacimiento,fecha_ingreso,seccional_id,cfs_id,activo,seccionales(nombre),cfs(nombre,codigo)");
+  if(sec)q.set("seccional_id",`eq.${sec}`);
+  if(cfs)q.set("cfs_id",`eq.${cfs}`);
+  if(perfil?.rol==="admin_seccional")q.set("seccional_id",`eq.${perfil.seccional_id}`);
+  const all=[];
+  try{
+    for(let offset=0;;offset+=1000){
+      const p=new URLSearchParams(q);
+      p.set("limit","1000"); p.set("offset",String(offset));
+      const {data}=await api("/rest/v1/afiliados?"+p.toString());
+      const rows=data||[]; all.push(...rows);
+      if(rows.length<1000)break;
+    }
+  }catch(e){
+    box.innerHTML=`<div class="msg">No fue posible generar el reporte: ${esc(e.message)}</div>`;
+    return;
+  }
+
+  const hoy=new Date();
+  const fechaKey=tipo==="cumpleanos"?"fecha_nacimiento":"fecha_ingreso";
+  let rows=all.filter(a=>a[fechaKey] && fechaDentroPeriodoEfemeride(a[fechaKey],periodo,hoy));
+  rows=ordenarEfemerides(rows,fechaKey);
+
+  const periodoLabel={dia:"Hoy",semana:"Esta semana",mes:"Este mes",anio:"Todo el año"}[periodo]||periodo;
+  const tipoLabel=tipo==="cumpleanos"?"Cumpleaños":"Aniversarios de afiliación";
+  $("efInfo").textContent=`${rows.length} registro${rows.length===1?"":"s"} — ${tipoLabel} — ${periodoLabel}`;
+
+  if(!rows.length){
+    box.innerHTML=`<div class="report-head"><strong>${esc(tipoLabel)}</strong><span>${esc(periodoLabel)}</span></div><div class="empty">No hay registros para el período seleccionado.</div>`;
+    return;
+  }
+
+  const body=rows.map(a=>{
+    const fecha=tipo==="cumpleanos"?formatDate(a.fecha_nacimiento):formatDate(a.fecha_ingreso);
+    const extra=tipo==="cumpleanos"
+      ? (calcAge(a.fecha_nacimiento)??"—")
+      : (aniversarioAnios(a.fecha_ingreso,hoy)??"—");
+    const extraLabel=tipo==="cumpleanos"?"Edad":"Años de afiliación";
+    return `<tr>
+      <td>${esc(a.cedula)}</td>
+      <td>${esc(nombreCompletoAfiliado(a))}</td>
+      <td>${esc(fecha)}</td>
+      <td>${esc(extra)}</td>
+      <td>${esc(a.seccionales?.nombre||"—")}</td>
+      <td>${esc(a.cfs?.nombre||"—")}</td>
+    </tr>`;
+  }).join("");
+
+  box.innerHTML=`
+    <div class="report-head"><strong>${esc(tipoLabel)}</strong><span>${rows.length} registro${rows.length===1?"":"s"} — ${esc(periodoLabel)}</span></div>
+    <table>
+      <thead><tr>
+        <th>Cédula</th><th>Afiliado</th><th>${tipo==="cumpleanos"?"Fecha de nacimiento":"Fecha de afiliación"}</th>
+        <th>${tipo==="cumpleanos"?"Edad":"Años de afiliación"}</th><th>Seccional</th><th>CFS</th>
+      </tr></thead>
+      <tbody>${body}</tbody>
+    </table>`;
+}
+
 async function generarReporte(){
   const box=$("reporteTabla");if(!box)return;
   box.innerHTML=`<div class="loading">Generando reporte…</div>`;
@@ -925,6 +1095,7 @@ async function liberarDirigencia(row){
   if(!row?.id)return;
   const fecha=$("dFechaFinGestion")?.value||new Date().toISOString().slice(0,10);
   if(!fecha){alert("Indique la fecha de baja / fin de gestión.");return;}
+  if(!confirm(`¿Desea dejar este cargo en estado VACANTE con fecha de fin de gestión ${formatDate(fecha)}?`))return;
   const msg=$("dEditorMsg"); msg.textContent="Guardando…";
   try{await api(`/rest/v1/dirigencia_sindical?id=eq.${row.id}`,{method:"PATCH",headers:{"Content-Type":"application/json","Prefer":"return=minimal"},body:JSON.stringify({afiliado_id:null,fecha_fin_gestion:fecha,updated_at:new Date().toISOString()})});msg.textContent="El cargo quedó VACANTE y se registró la fecha de fin de gestión.";await cargarDirigenciaTabla();}
   catch(e){msg.textContent="No se pudo liberar el cargo: "+(e.message||e);msg.style.color="#b42318";}
