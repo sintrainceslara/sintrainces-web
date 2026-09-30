@@ -1,4 +1,4 @@
-/* SINTRAINCES ADMIN v1.50.6 */
+/* SINTRAINCES ADMIN v1.50.7 */
 /* SINTRAINCES v1.38.4 — módulo de dirigencia y CFS */
 let sb = null;
 let perfil = null;
@@ -181,7 +181,7 @@ async function render(view) {
 }
 
 async function afiliados(m) {
-  m.innerHTML=`<div class="section-head"><div>${title("Afiliados","Consulta de los registros según tu alcance administrativo.")}</div><button id="nuevoAfiliado">+ Nuevo afiliado</button></div><div id="reportesPrincipalPanel" class="panel">
+  m.innerHTML=`<div class="section-head"><div>${title("Afiliados","Consulta de los registros según tu alcance administrativo.")}</div><button id="nuevoAfiliado">+ Nuevo afiliado</button></div><div class="panel">
     <div class="filters affiliates-filters">
       <label>Buscar por cédula, apellido o nombre<input id="fTexto" placeholder="Ej.: 1510512 o Pérez"></label>
       <label>Seccional<select id="fSeccional"></select></label>
@@ -391,7 +391,7 @@ async function portalAfiliado(){
 }
 
 async function reportes(m){
-  m.innerHTML=title("Reportes y estadísticas","Consulta, combina filtros y obtén resúmenes de afiliación sin modificar registros.")+`<div class="panel">
+  m.innerHTML=title("Reportes y estadísticas","Consulta, combina filtros y obtén resúmenes de afiliación sin modificar registros.")+`<div id="reportesPrincipalPanel" class="panel">
     <div class="filters affiliates-filters">
       <label>Seccional<select id="rSeccional"></select></label>
       <label>CFS<select id="rCfs"></select></label>
