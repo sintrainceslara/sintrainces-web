@@ -1,0 +1,223 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="description" content="Solicitud de afiliación a SINTRAINCES">
+<title>Solicitud de Afiliación | SINTRAINCES</title>
+<link rel="stylesheet" href="admin.css">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="config.js"></script>
+<style>
+body{margin:0;background:linear-gradient(135deg,#eef4fb,#f8fafc);font-family:Arial,sans-serif;color:#243247}
+.wrap{max-width:1080px;margin:0 auto;padding:24px 16px 40px}
+.header{background:#fff;border:1px solid #e0e7f0;border-radius:18px;padding:18px 22px;box-shadow:0 8px 28px rgba(18,45,78,.08);display:flex;align-items:center;justify-content:space-between;gap:18px;margin-bottom:18px}
+.brand{display:flex;align-items:center;gap:14px}.brand img{width:130px;height:68px;object-fit:contain}.brand h1{font-size:21px;color:#173f7a;margin:0}.brand p{margin:5px 0 0;color:#687384;font-size:13px}
+.header a{display:inline-block;padding:10px 14px;border-radius:9px;background:#eef3fa;color:#173f7a;text-decoration:none;font-weight:800;font-size:13px}
+.card{background:#fff;border:1px solid #e0e7f0;border-radius:18px;padding:24px;box-shadow:0 8px 28px rgba(18,45,78,.08)}
+.card h2{margin:0 0 7px;color:#173f7a}.intro{color:#687384;font-size:14px;line-height:1.55;margin-bottom:20px}
+.formgrid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px}.full{grid-column:1/-1}
+label{display:block;font-weight:700;font-size:13px;color:#45515f}input,select,textarea{width:100%;box-sizing:border-box;margin-top:6px;padding:11px;border:1px solid #ccd4df;border-radius:9px;background:#fff;font:inherit;color:#243247}textarea{min-height:105px;resize:vertical}
+small{display:block;margin-top:4px;color:#7a8491;font-weight:400;font-size:11px}.required{color:#b42318}
+.actions{display:flex;gap:10px;flex-wrap:wrap;margin-top:20px}.actions button{border:0;border-radius:9px;padding:12px 18px;background:#174ea6;color:#fff;cursor:pointer;font-weight:800}.actions button.secondary{background:#eef3fa;color:#173f7a}.actions button:disabled{opacity:.65;cursor:wait}
+.msg{margin-top:12px;padding:10px 12px;border-radius:9px;font-size:13px;display:none}.msg.ok{display:block;background:#ecfdf3;color:#027a48;border:1px solid #b7ebcb}.msg.err{display:block;background:#fff1f2;color:#b42318;border:1px solid #fecdd3}.msg.info{display:block;background:#eef4fb;color:#174ea6;border:1px solid #cbdcf5}
+.notice{margin:18px 0;padding:13px 15px;background:#f7f9fc;border-left:4px solid #174ea6;border-radius:8px;color:#45515f;font-size:13px;line-height:1.5}.success{display:none;margin-top:18px;padding:18px;background:#ecfdf3;border:1px solid #b7ebcb;border-radius:12px}.success h3{margin:0 0 8px;color:#027a48}.success strong{color:#173f7a}
+.loading{color:#687384;font-size:12px;margin-top:5px}.footer{text-align:center;color:#7a8491;font-size:12px;margin-top:18px}
+@media(max-width:720px){.header{align-items:flex-start;flex-direction:column}.brand{align-items:flex-start}.formgrid{grid-template-columns:1fr}.full{grid-column:auto}.header a{width:100%;text-align:center;box-sizing:border-box}}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header class="header">
+    <div class="brand">
+      <img src="assets/logo-sintrainces.jpg" alt="Logo SINTRAINCES">
+      <div><h1>SINTRAINCES</h1><p>Sindicato Nacional de Trabajadores del INCES</p></div>
+    </div>
+    <a href="index.html">← Volver al sitio principal</a>
+  </header>
+
+  <main class="card">
+    <h2>Solicitud de Afiliación</h2>
+    <p class="intro">Complete todos los datos solicitados. La información será enviada a SINTRAINCES para su revisión. <strong>El envío de esta solicitud no crea automáticamente la afiliación</strong>; la incorporación quedará sujeta a la aprobación correspondiente.</p>
+
+    <div class="notice"><strong>Importante:</strong> todos los campos son obligatorios. La edad será calculada automáticamente a partir de la fecha de nacimiento. El número de afiliado, el estatus y la fecha de afiliación serán asignados por el sistema únicamente cuando la solicitud sea aprobada.</div>
+
+    <form id="solicitudForm" novalidate>
+      <div class="formgrid">
+        <label>Nacionalidad <span class="required">*</span>
+          <input id="nacionalidad" maxlength="30" placeholder="Ej.: V" required>
+        </label>
+        <label>Cédula <span class="required">*</span>
+          <input id="cedula" maxlength="20" inputmode="numeric" placeholder="Número de cédula" required>
+        </label>
+
+        <label>Primer apellido <span class="required">*</span>
+          <input id="primer_apellido" maxlength="80" required>
+        </label>
+        <label>Segundo apellido <span class="required">*</span>
+          <input id="segundo_apellido" maxlength="80" required>
+        </label>
+        <label>Primer nombre <span class="required">*</span>
+          <input id="primer_nombre" maxlength="80" required>
+        </label>
+        <label>Segundo nombre <span class="required">*</span>
+          <input id="segundo_nombre" maxlength="80" required>
+        </label>
+
+        <label>Sexo <span class="required">*</span>
+          <select id="sexo" required><option value="">Seleccione</option><option value="F">Femenino</option><option value="M">Masculino</option></select>
+        </label>
+        <label>Fecha de nacimiento <span class="required">*</span>
+          <input id="fecha_nacimiento" type="date" required>
+          <small id="edadCalculada">La edad se calculará automáticamente.</small>
+        </label>
+
+        <label>Seccional <span class="required">*</span>
+          <select id="seccional_id" required><option value="">Cargando seccionales…</option></select>
+        </label>
+        <label>Cargo <span class="required">*</span>
+          <select id="cargo_id" required><option value="">Cargando cargos…</option></select>
+        </label>
+        <label>CFS <span class="required">*</span>
+          <select id="cfs_id" required disabled><option value="">Seleccione primero la seccional</option></select>
+          <small id="cfsInfo"></small>
+        </label>
+        <label>Estado de residencia <span class="required">*</span>
+          <input id="estado_residencia" maxlength="80" placeholder="Estado donde reside" required>
+        </label>
+        <label>Ciudad <span class="required">*</span>
+          <input id="ciudad" maxlength="100" required>
+        </label>
+        <label>Teléfono <span class="required">*</span>
+          <input id="telefono" type="tel" maxlength="30" inputmode="tel" required>
+        </label>
+        <label>Correo electrónico <span class="required">*</span>
+          <input id="email" type="email" maxlength="180" required>
+        </label>
+        <label class="full">Dirección <span class="required">*</span>
+          <input id="direccion" maxlength="300" required>
+        </label>
+        <label class="full">Observaciones <span class="required">*</span>
+          <textarea id="observaciones" maxlength="2000" placeholder="Indique cualquier información adicional que considere necesaria para la revisión de su solicitud." required></textarea>
+        </label>
+      </div>
+
+      <div class="actions">
+        <button type="submit" id="enviarBtn">Enviar solicitud</button>
+        <button type="button" id="limpiarBtn" class="secondary">Limpiar formulario</button>
+      </div>
+      <div id="formMsg" class="msg"></div>
+    </form>
+
+    <div id="successBox" class="success">
+      <h3>Solicitud enviada correctamente</h3>
+      <p>Su solicitud fue recibida y quedó registrada para revisión.</p>
+      <p><strong>Número de solicitud: <span id="successId"></span></strong></p>
+      <p>Conserve este número para futuras consultas. La solicitud permanece pendiente hasta que sea revisada por SINTRAINCES.</p>
+    </div>
+  </main>
+  <div class="footer">SINTRAINCES · Solicitud de afiliación</div>
+</div>
+
+<script>
+const $=id=>document.getElementById(id);
+let sb=null;
+let catalogos={seccionales:[],cargos:[],cfs:[]};
+
+function showMsg(text,type='info'){
+  const el=$('formMsg');el.textContent=text;el.className='msg '+type;
+}
+function clearMsg(){const el=$('formMsg');el.textContent='';el.className='msg';}
+function esc(v){return String(v??'').replaceAll('&','&amp;').replaceAll('<','&lt;').replaceAll('>','&gt;').replaceAll('"','&quot;').replaceAll("'",'&#039;');}
+function calcAge(value){
+  if(!value)return null;
+  const d=new Date(value+'T00:00:00'); if(Number.isNaN(d.getTime()))return null;
+  const n=new Date(); let age=n.getFullYear()-d.getFullYear(); const m=n.getMonth()-d.getMonth();
+  if(m<0 || (m===0 && n.getDate()<d.getDate())) age--;
+  return age>=0&&age<=130?age:null;
+}
+function fillSelect(id,rows,placeholder){
+  const el=$(id); el.innerHTML='<option value="">'+esc(placeholder)+'</option>'+(rows||[]).map(r=>`<option value="${esc(r.id)}">${esc(r.nombre)}</option>`).join('');
+}
+async function init(){
+  try{
+    const cfg=window.SINTRAINCES_CONFIG;
+    if(!cfg?.SUPABASE_URL||!cfg?.SUPABASE_PUBLISHABLE_KEY) throw new Error('Configuración de Supabase incompleta.');
+    sb=supabase.createClient(cfg.SUPABASE_URL,cfg.SUPABASE_PUBLISHABLE_KEY);
+    const [sec,cargos]=await Promise.all([
+      sb.from('seccionales').select('id,nombre').eq('activo',true).order('nombre',{ascending:true}),
+      sb.from('cargos').select('id,nombre').order('id',{ascending:true})
+    ]);
+    if(sec.error)throw sec.error; if(cargos.error)throw cargos.error;
+    catalogos.seccionales=sec.data||[]; catalogos.cargos=cargos.data||[];
+    fillSelect('seccional_id',catalogos.seccionales,'Seleccione seccional');
+    fillSelect('cargo_id',catalogos.cargos,'Seleccione cargo');
+    $('seccional_id').addEventListener('change',cargarCfs);
+    await cargarCfs();
+  }catch(e){
+    console.error(e); showMsg('No se pudieron cargar los catálogos: '+(e.message||e),'err');
+  }
+}
+async function cargarCfs(){
+  const sec=$('seccional_id').value; const el=$('cfs_id'); const info=$('cfsInfo');
+  el.disabled=true; el.innerHTML='<option value="">Cargando CFS…</option>'; info.textContent='';
+  if(!sec){el.innerHTML='<option value="">Seleccione primero la seccional</option>';return;}
+  try{
+    const {data,error}=await sb.from('cfs').select('id,nombre,codigo,seccional_id').eq('seccional_id',Number(sec)).eq('activo',true).order('nombre',{ascending:true});
+    if(error)throw error;
+    catalogos.cfs=data||[]; fillSelect('cfs_id',catalogos.cfs,'Seleccione CFS'); el.disabled=false;
+    info.textContent=`${catalogos.cfs.length} CFS disponible(s) para la seccional seleccionada.`;
+  }catch(e){console.error(e);el.innerHTML='<option value="">No fue posible cargar los CFS</option>';showMsg('No se pudieron cargar los CFS de la seccional: '+(e.message||e),'err');}
+}
+$('fecha_nacimiento').addEventListener('change',()=>{
+  const v=$('fecha_nacimiento').value; const age=calcAge(v); const out=$('edadCalculada');
+  if(v && new Date(v+'T00:00:00')>new Date()) {out.textContent='La fecha no puede ser futura.';out.style.color='#b42318';return;}
+  out.style.color='#7a8491'; out.textContent=age===null?'La edad se calculará automáticamente.':`Edad calculada: ${age} años.`;
+});
+$('limpiarBtn').onclick=()=>{ $('solicitudForm').reset(); $('cfs_id').disabled=true; $('cfs_id').innerHTML='<option value="">Seleccione primero la seccional</option>'; $('edadCalculada').textContent='La edad se calculará automáticamente.'; $('successBox').style.display='none'; clearMsg(); };
+$('solicitudForm').addEventListener('submit',async ev=>{
+  ev.preventDefault(); clearMsg(); $('successBox').style.display='none';
+  const btn=$('enviarBtn');
+  const fecha=$('fecha_nacimiento').value;
+  if(!ev.currentTarget.checkValidity()){ev.currentTarget.reportValidity();return;}
+  if(!calcAge(fecha)){showMsg('La fecha de nacimiento no es válida.','err');return;}
+  if(!$('seccional_id').value||!$('cfs_id').value||!$('cargo_id').value){showMsg('Debe seleccionar seccional, CFS y cargo.','err');return;}
+  const payload={
+    p_nacionalidad:$('nacionalidad').value.trim(),
+    p_cedula:$('cedula').value.trim(),
+    p_primer_apellido:$('primer_apellido').value.trim(),
+    p_segundo_apellido:$('segundo_apellido').value.trim(),
+    p_primer_nombre:$('primer_nombre').value.trim(),
+    p_segundo_nombre:$('segundo_nombre').value.trim(),
+    p_sexo:$('sexo').value,
+    p_fecha_nacimiento:fecha,
+    p_cargo_id:Number($('cargo_id').value),
+    p_seccional_id:Number($('seccional_id').value),
+    p_cfs_id:Number($('cfs_id').value),
+    p_estado_residencia:$('estado_residencia').value.trim(),
+    p_ciudad:$('ciudad').value.trim(),
+    p_direccion:$('direccion').value.trim(),
+    p_telefono:$('telefono').value.trim(),
+    p_email:$('email').value.trim(),
+    p_observaciones:$('observaciones').value.trim()
+  };
+  btn.disabled=true; btn.textContent='Enviando…'; showMsg('Registrando la solicitud…','info');
+  try{
+    const {data,error}=await sb.rpc('crear_solicitud_afiliacion',payload);
+    if(error)throw error;
+    const id=Array.isArray(data)?data[0]:data;
+    if(!id)throw new Error('Supabase no devolvió el número de solicitud.');
+    $('successId').textContent=id; $('successBox').style.display='block'; $('solicitudForm').reset(); $('cfs_id').disabled=true; $('cfs_id').innerHTML='<option value="">Seleccione primero la seccional</option>'; $('edadCalculada').textContent='La edad se calculará automáticamente.'; showMsg('Solicitud enviada correctamente.','ok');
+    window.scrollTo({top:document.body.scrollHeight,behavior:'smooth'});
+  }catch(e){
+    console.error(e);
+    let text=e?.message||'No se pudo registrar la solicitud.';
+    if(text.includes('ya pertenece a un afiliado')) text='La cédula indicada ya pertenece a un afiliado registrado.';
+    else if(text.includes('Ya existe una solicitud')) text='Ya existe una solicitud de afiliación pendiente para esta cédula.';
+    showMsg(text,'err');
+  }finally{btn.disabled=false;btn.textContent='Enviar solicitud';}
+});
+init();
+</script>
+</body>
+</html>
