@@ -1,4 +1,4 @@
-/* SINTRAINCES ADMIN v1.50.5 */
+/* SINTRAINCES ADMIN v1.50.6 */
 /* SINTRAINCES v1.38.4 — módulo de dirigencia y CFS */
 let sb = null;
 let perfil = null;
@@ -181,7 +181,7 @@ async function render(view) {
 }
 
 async function afiliados(m) {
-  m.innerHTML=`<div class="section-head"><div>${title("Afiliados","Consulta de los registros según tu alcance administrativo.")}</div><button id="nuevoAfiliado">+ Nuevo afiliado</button></div><div class="panel">
+  m.innerHTML=`<div class="section-head"><div>${title("Afiliados","Consulta de los registros según tu alcance administrativo.")}</div><button id="nuevoAfiliado">+ Nuevo afiliado</button></div><div id="reportesPrincipalPanel" class="panel">
     <div class="filters affiliates-filters">
       <label>Buscar por cédula, apellido o nombre<input id="fTexto" placeholder="Ej.: 1510512 o Pérez"></label>
       <label>Seccional<select id="fSeccional"></select></label>
@@ -400,7 +400,7 @@ async function reportes(m){
       <label>Estatus<select id="rEstatus"></select></label>
       <label>Edad mínima<input id="rMin" type="number" min="0" max="120"></label>
       <label>Edad máxima<input id="rMax" type="number" min="0" max="120"></label>
-      <label>Tipo de reporte<select id="rTipo"><option value="general">Resumen general</option><option value="seccional">Por seccional</option><option value="cargo">Por cargo</option><option value="estatus">Por estatus</option><option value="sexo">Por sexo</option><option value="edad">Por edad</option><option value="cfs">Por CFS</option><option value="dashboard">Dashboard (resumen)</option></select></label>
+      <label>Tipo de reporte<select id="rTipo"><option value="general">Resumen general</option><option value="seccional">Por seccional</option><option value="cargo">Por cargo</option><option value="estatus">Por estatus</option><option value="sexo">Por sexo</option><option value="edad">Por edad</option><option value="cfs">Por CFS</option><option value="dashboard">Dashboard (resumen)</option><option value="cumpleanos">🎂 Cumpleaños</option><option value="aniversarios">🎉 Aniversarios de afiliación</option></select></label>
     </div>
     <div class="filter-actions"><button id="generarReporte">Aplicar filtros</button><button id="limpiarReporte" class="secondary">Limpiar selección</button><button id="imprimirReporte" class="secondary">Imprimir</button><button id="pdfReporte" class="secondary">Guardar PDF</button><span id="reporteInfo" class="muted"></span></div>
     <div id="reporteResumen"></div>
@@ -455,6 +455,21 @@ async function reportes(m){
     <div id="efTabla" class="tablewrap"><div class="empty">Seleccione el tipo y período.</div></div>
   `;
   m.appendChild(ef);
+  // Los reportes especiales se acceden desde el mismo combo "Tipo de reporte"
+  // para que no queden ocultos al final de la pantalla.
+  ef.style.display = "none";
+  const principal = $("reportesPrincipalPanel");
+  const alternarTipoReporte = async ()=>{
+    const tipoActual = $("rTipo")?.value || "dashboard";
+    const especial = tipoActual === "cumpleanos" || tipoActual === "aniversarios";
+    if(principal) principal.style.display = especial ? "none" : "block";
+    ef.style.display = especial ? "block" : "none";
+    if(especial){
+      $("efTipo").value = tipoActual;
+      await generarReporteEfemerides();
+    }
+  };
+  $("rTipo").addEventListener("change", alternarTipoReporte);
 
   fillSelect("efSeccional",catalogos.seccionales,"Todas las seccionales");
   if(perfil?.rol==="admin_seccional"){
@@ -467,7 +482,6 @@ async function reportes(m){
   $("efSeccional").addEventListener("change",e=>cfsForEfemerides(e.target.value));
   $("generarEfemerides").onclick=generarReporteEfemerides;
   $("imprimirEfemerides").onclick=()=>window.print();
-  await generarReporteEfemerides();
   await generarReporte();
 }
 function cfsForReport(id){const list=id?catalogos.cfs.filter(x=>String(x.seccional_id)===String(id)):catalogos.cfs;fillSelect("rCfs",list,"Todos los CFS");}
