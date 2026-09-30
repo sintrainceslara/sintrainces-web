@@ -144,14 +144,16 @@ async function init(){
     const cfg=window.SINTRAINCES_CONFIG;
     if(!cfg?.SUPABASE_URL||!cfg?.SUPABASE_PUBLISHABLE_KEY) throw new Error('Configuración de Supabase incompleta.');
     sb=supabase.createClient(cfg.SUPABASE_URL,cfg.SUPABASE_PUBLISHABLE_KEY);
-    const [sec,cargos]=await Promise.all([
-      sb.from('seccionales').select('id,nombre').eq('activo',true).order('nombre',{ascending:true}),
-      sb.from('cargos').select('id,nombre').order('id',{ascending:true})
-    ]);
-    if(sec.error)throw sec.error; if(cargos.error)throw cargos.error;
-    catalogos.seccionales=sec.data||[]; catalogos.cargos=cargos.data||[];
+    const {data,error}=await sb.rpc('catalogos_solicitud_afiliacion');
+    if(error)throw error;
+    const cat=data||{};
+    catalogos.seccionales=Array.isArray(cat.seccionales)?cat.seccionales:[];
+    catalogos.cargos=Array.isArray(cat.cargos)?cat.cargos:[];
     fillSelect('seccional_id',catalogos.seccionales,'Seleccione seccional');
     fillSelect('cargo_id',catalogos.cargos,'Seleccione cargo');
+    if(!catalogos.seccionales.length || !catalogos.cargos.length){
+      throw new Error('Supabase no devolvió los catálogos de seccionales y cargos.');
+    }
     $('seccional_id').addEventListener('change',cargarCfs);
     await cargarCfs();
   }catch(e){
