@@ -29,7 +29,7 @@ body{background:#f4f7fb}.portal{max-width:1080px;margin:24px auto;padding:16px}.
             <label>Contraseña<input id="rPass" type="password" minlength="8" required></label>
             <label>Confirmar contraseña<input id="rPass2" type="password" minlength="8" required></label>
             <label>Cédula<input id="rCed" required></label>
-            <label>Fecha de nacimiento<input id="rDob" type="date" required></label>
+            <label>Fecha de nacimiento<input id="rDob" type="text" inputmode="numeric" maxlength="10" placeholder="dd/mm/aaaa" autocomplete="bday" required></label>
             <div class="actions"><button>Crear mi acceso</button></div>
             <div id="regMsg" class="msg"></div>
           </form>
@@ -40,7 +40,7 @@ body{background:#f4f7fb}.portal{max-width:1080px;margin:24px auto;padding:16px}.
             <label>Correo electrónico<input id="lEmail" type="email" required></label>
             <label>Contraseña<input id="lPass" type="password" required></label>
             <label>Cédula<input id="lCed" required></label>
-            <label>Fecha de nacimiento<input id="lDob" type="date" required></label>
+            <label>Fecha de nacimiento<input id="lDob" type="text" inputmode="numeric" maxlength="10" placeholder="dd/mm/aaaa" autocomplete="bday" required></label>
             <div class="actions"><button>Ingresar</button></div>
             <div id="loginMsg" class="msg"></div>
             <a id="forgotPasswordLink" class="auth-link" href="#">¿Olvidaste tu contraseña?</a>
@@ -222,6 +222,24 @@ const sb=window.supabase.createClient(cfg.SUPABASE_URL,cfg.SUPABASE_PUBLISHABLE_
 const $=id=>document.getElementById(id);
 let perfil=null, afiliado=null;
 const setMsg=(id,t,ok=false)=>{$(id).textContent=t;$(id).style.color=ok?'#027a48':'#b42318'};
+function mascaraFechaVE(el){
+  let v=String(el.value||'').replace(/\D/g,'').slice(0,8);
+  if(v.length>4)v=v.slice(0,2)+'/'+v.slice(2,4)+'/'+v.slice(4);
+  else if(v.length>2)v=v.slice(0,2)+'/'+v.slice(2);
+  el.value=v;
+}
+function fechaVEaISO(v){
+  const s=String(v||'').trim();
+  const m=s.match(/^(\d{2})\/(\d{2})\/(\d{4})$/);
+  if(!m) throw new Error('La fecha debe tener el formato dd/mm/aaaa.');
+  const d=Number(m[1]), mo=Number(m[2]), y=Number(m[3]);
+  const dt=new Date(Date.UTC(y,mo-1,d));
+  if(dt.getUTCFullYear()!==y || dt.getUTCMonth()!==mo-1 || dt.getUTCDate()!==d) throw new Error('La fecha de nacimiento no es válida.');
+  const iso=`${y}-${String(mo).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
+  if(iso>new Date().toISOString().slice(0,10)) throw new Error('La fecha de nacimiento no puede ser futura.');
+  return iso;
+}
+['rDob','lDob'].forEach(id=>$(id).addEventListener('input',e=>mascaraFechaVE(e.target)));
 async function vincular(ced,dob){
   const {data,error}=await sb.rpc('vincular_usuario_afiliado',{p_cedula:ced.trim(),p_fecha_nacimiento:dob});
   if(error)throw error;
@@ -288,8 +306,8 @@ async function cargarReclamos(){
   if(error){$('reclamos').innerHTML='<div class="muted">No se pudieron cargar tus reclamos y sugerencias.</div>';return;}
   $('reclamos').innerHTML='<h3 style="font-size:15px;margin-bottom:8px">Mis reclamos y sugerencias</h3>'+((data||[]).map(x=>`<div class="reclamo-row"><div class="reclamo-head"><b>${esc(x.asunto||etiquetaTipo(x.tipo))}</b><span class="reclamo-estado">${esc(etiquetaEstado(x.estado))}</span></div><div class="reclamo-meta">${esc(etiquetaTipo(x.tipo))} · ${esc(etiquetaCategoria(x.categoria))} · ${fechaHora(x.created_at)}${x.fecha_hecho?' · Hecho: '+fecha(x.fecha_hecho):''}</div><div style="margin-top:8px;font-size:13px">${esc(x.descripcion||'')}</div>${x.sugerencia?`<div class="reclamo-sugerencia"><b>Sugerencia del afiliado:</b><br>${esc(x.sugerencia)}</div>`:''}${x.respuesta?`<div class="reclamo-sugerencia" style="border-left-color:#667085"><b>Respuesta de SINTRAINCES:</b><br>${esc(x.respuesta)}</div>`:''}</div>`).join('')||'<div class="muted">Aún no tienes reclamos o sugerencias registrados.</div>');
 }
-$('regForm').onsubmit=async e=>{e.preventDefault();setMsg('regMsg','Creando acceso…');if($('rPass').value!==$('rPass2').value)return setMsg('regMsg','Las contraseñas no coinciden.');try{const {data,error}=await sb.auth.signUp({email:$('rEmail').value.trim(),password:$('rPass').value,options:{emailRedirectTo:new URL('portal_afiliado.html', document.baseURI).href}});if(error)throw error;if(data.session){await vincular($('rCed').value,$('rDob').value);await iniciarPortal();}else{setMsg('regMsg','Cuenta creada. Revisa tu correo para confirmar la cuenta y luego inicia sesión.',true)}}catch(e){setMsg('regMsg',e.message||String(e))}};
-$('loginForm').onsubmit=async e=>{e.preventDefault();setMsg('loginMsg','Ingresando…');try{const {data,error}=await sb.auth.signInWithPassword({email:$('lEmail').value.trim(),password:$('lPass').value});if(error)throw error;await vincular($('lCed').value,$('lDob').value);await iniciarPortal()}catch(e){setMsg('loginMsg',e.message||String(e))}};
+$('regForm').onsubmit=async e=>{e.preventDefault();setMsg('regMsg','Creando acceso…');if($('rPass').value!==$('rPass2').value)return setMsg('regMsg','Las contraseñas no coinciden.');let dobISO;try{dobISO=fechaVEaISO($('rDob').value)}catch(err){return setMsg('regMsg',err.message||String(err))}try{const {data,error}=await sb.auth.signUp({email:$('rEmail').value.trim(),password:$('rPass').value,options:{emailRedirectTo:new URL('portal_afiliado.html', document.baseURI).href}});if(error)throw error;if(data.session){await vincular($('rCed').value,dobISO);await iniciarPortal();}else{setMsg('regMsg','Cuenta creada. Revisa tu correo para confirmar la cuenta y luego inicia sesión.',true)}}catch(e){setMsg('regMsg',e.message||String(e))}};
+$('loginForm').onsubmit=async e=>{e.preventDefault();setMsg('loginMsg','Ingresando…');let dobISO;try{dobISO=fechaVEaISO($('lDob').value)}catch(err){return setMsg('loginMsg',err.message||String(err))}try{const {data,error}=await sb.auth.signInWithPassword({email:$('lEmail').value.trim(),password:$('lPass').value});if(error)throw error;await vincular($('lCed').value,dobISO);await iniciarPortal()}catch(e){setMsg('loginMsg',e.message||String(e))}};
 $('forgotPasswordLink').onclick=e=>{e.preventDefault();$('recoveryBox').classList.toggle('hidden');$('recoveryEmail').value=$('lEmail').value.trim();if(!$('recoveryBox').classList.contains('hidden'))$('recoveryEmail').focus()};
 $('cancelRecoveryBtn').onclick=()=>{$('recoveryBox').classList.add('hidden');$('recoveryMsg').textContent=''};
 $('recoveryForm').onsubmit=async e=>{e.preventDefault();setMsg('recoveryMsg','Enviando enlace…');try{const email=$('recoveryEmail').value.trim();if(!email)throw new Error('Indique su correo electrónico.');const redirectTo=new URL('portal_afiliado.html', document.baseURI).href;const {error}=await sb.auth.resetPasswordForEmail(email,{redirectTo});if(error)throw error;setMsg('recoveryMsg','Si existe una cuenta con ese correo, recibirás un enlace para recuperar tu contraseña. Revisa también la carpeta de correo no deseado.',true)}catch(e){setMsg('recoveryMsg',e.message||String(e))}};
