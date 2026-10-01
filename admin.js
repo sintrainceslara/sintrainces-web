@@ -1,4 +1,4 @@
-/* SINTRAINCES ADMIN v1.52.1 */
+/* SINTRAINCES ADMIN v1.52.2 */
 /* SINTRAINCES v1.38.4 — módulo de dirigencia y CFS */
 let sb = null;
 let perfil = null;
@@ -633,11 +633,11 @@ async function cargarSolicitudesAfiliacionAdmin(){
   const texto=($("qAfTexto")?.value||"").trim().toLowerCase();
 
   try{
-    const {data,error}=await sb.rpc("listar_solicitudes_afiliacion_admin",{
-      p_estado:estado||null,
-      p_seccional_id:sec?Number(sec):null
+    const {data}=await api("/rest/v1/rpc/listar_solicitudes_afiliacion_admin",{
+      method:"POST",
+      headers:{"Content-Type":"application/json"},
+      body:JSON.stringify({p_estado:estado||null,p_seccional_id:sec?Number(sec):null})
     });
-    if(error)throw error;
 
     let rows=Array.isArray(data)?data:[];
     if(texto){
@@ -681,22 +681,15 @@ async function cargarSolicitudesAfiliacionAdmin(){
 
 async function abrirSolicitudAfiliacionAdmin(r){
   if(!r)return;
-  const d=$("afSolicitudDetalle"); d.classList.remove("hidden");
-  d.innerHTML='<div class="loading">Cargando detalle de la solicitud…</div>';
-
   try{
-    const {data,error}=await sb.rpc("obtener_detalle_solicitud_afiliacion_admin",{
-      p_solicitud_id:Number(r.id)
-    });
-    if(error)throw error;
+    const {data}=await api("/rest/v1/rpc/obtener_detalle_solicitud_afiliacion_admin",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({p_solicitud_id:Number(r.id)})});
     const detalle=Array.isArray(data)?data[0]:data;
-    if(!detalle)throw new Error("No se encontró el detalle de la solicitud.");
-    r={...r,...detalle};
+    if(detalle) r={...r,...detalle};
   }catch(e){
-    d.innerHTML=`<div class="msg">No se pudo cargar el detalle: ${esc(e.message||e)}</div>`;
+    const d=$("afSolicitudDetalle"); if(d){d.classList.remove("hidden");d.innerHTML=`<div class="panel"><b>No se pudo cargar el detalle.</b><p>${esc(e?.message||e)}</p></div>`;}
     return;
   }
-
+  const d=$("afSolicitudDetalle"); d.classList.remove("hidden");
   const editable=r.estado==="pendiente";
   const nombre=[r.primer_nombre,r.segundo_nombre,r.primer_apellido,r.segundo_apellido].filter(Boolean).join(" ").trim();
 
@@ -745,8 +738,11 @@ async function abrirSolicitudAfiliacionAdmin(r){
 async function aprobarSolicitudAfiliacionAdmin(id){
   const msg=$("afDecisionMsg"); if(msg)msg.textContent="Aprobando y creando el afiliado…";
   try{
-    const {data,error}=await sb.rpc("aprobar_solicitud_afiliacion",{p_solicitud_id:Number(id)});
-    if(error)throw error;
+    const {data}=await api("/rest/v1/rpc/aprobar_solicitud_afiliacion",{
+      method:"POST",
+      headers:{"Content-Type":"application/json"},
+      body:JSON.stringify({p_solicitud_id:Number(id)})
+    });
     const afiliadoId=Array.isArray(data)?data[0]:data;
     if(msg){
       msg.textContent=`Solicitud aprobada. Afiliado creado correctamente (ID ${afiliadoId}).`;
@@ -767,11 +763,11 @@ async function rechazarSolicitudAfiliacionAdmin(id){
   if(!motivo.trim()){alert("Debe indicar el motivo del rechazo.");return;}
   const msg=$("afDecisionMsg"); if(msg)msg.textContent="Rechazando…";
   try{
-    const {data,error}=await sb.rpc("rechazar_solicitud_afiliacion",{
-      p_solicitud_id:Number(id),
-      p_motivo:motivo.trim()
+    const {data}=await api("/rest/v1/rpc/rechazar_solicitud_afiliacion",{
+      method:"POST",
+      headers:{"Content-Type":"application/json"},
+      body:JSON.stringify({p_solicitud_id:Number(id),p_motivo:motivo.trim()})
     });
-    if(error)throw error;
     if(msg){
       msg.textContent="Solicitud rechazada correctamente.";
       msg.style.color="#027a48";
@@ -1272,7 +1268,7 @@ async function logout(){try{if(sb)await sb.auth.signOut({scope:"local"});}catch(
 document.addEventListener("DOMContentLoaded",async()=>{
   try{cfg();}catch(e){showLoginMessage(e.message+" Copie config.example.js como config.js.");return;}
   $("loginForm").addEventListener("submit",login); $("logout").addEventListener("click",logout); $("changePasswordForm").addEventListener("submit",changePassword); $("cancelPassword").addEventListener("click",hidePasswordPanel);
-  document.querySelectorAll(".nav").forEach(b=>b.addEventListener("click",()=>{document.querySelectorAll(".nav").forEach(x=>x.classList.remove("active"));b.classList.add("active");render(b.dataset.view).catch(console.error);}));
+  document.querySelectorAll(".nav").forEach(b=>b.addEventListener("click",()=>{document.querySelectorAll(".nav").forEach(x=>x.classList.remove("active"));b.classList.add("active");render(b.dataset.view).catch(e=>{ console.error(e); const main=$("main"); if(main) main.innerHTML=`<div class="panel"><b>No se pudo abrir este módulo.</b><p>${esc(e?.message||e)}</p></div>`; });}));
   hidePasswordPanel(); $("app").classList.add("hidden"); $("login").classList.remove("hidden");
   sb.auth.onAuthStateChange((_event,session)=>{if(!session){perfil=null;hidePasswordPanel();$("app").classList.add("hidden");$("login").classList.remove("hidden");}});
   const existing = await sb.auth.getSession();
