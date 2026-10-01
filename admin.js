@@ -1,4 +1,4 @@
-/* SINTRAINCES ADMIN v1.50.7 */
+/* SINTRAINCES ADMIN v1.52.1 */
 /* SINTRAINCES v1.38.4 — módulo de dirigencia y CFS */
 let sb = null;
 let perfil = null;
@@ -175,6 +175,7 @@ async function render(view) {
   else if(view==="reportes") reportes(m);
   else if(view==="reclamos") await reclamosAdmin(m);
   else if(view==="solicitudes") await solicitudes(m);
+  else if(view==="solicitudes_afiliacion") await solicitudesAfiliacion(m);
   else if(view==="usuarios") usuarios(m);
   else if(view==="organizacion") await organizacion(m);
   else if(view==="auditoria") auditoria(m);
@@ -391,7 +392,7 @@ async function portalAfiliado(){
 }
 
 async function reportes(m){
-  m.innerHTML=title("Reportes y estadísticas","Consulta, combina filtros y obtén resúmenes de afiliación sin modificar registros.")+`<div id="reportesPrincipalPanel" class="panel">
+  m.innerHTML=title("Reportes y estadísticas","Consulta, combina filtros y obtén resúmenes de afiliación sin modificar registros.")+`<div class="panel">
     <div class="filters affiliates-filters">
       <label>Seccional<select id="rSeccional"></select></label>
       <label>CFS<select id="rCfs"></select></label>
@@ -400,7 +401,7 @@ async function reportes(m){
       <label>Estatus<select id="rEstatus"></select></label>
       <label>Edad mínima<input id="rMin" type="number" min="0" max="120"></label>
       <label>Edad máxima<input id="rMax" type="number" min="0" max="120"></label>
-      <label>Tipo de reporte<select id="rTipo"><option value="general">Resumen general</option><option value="seccional">Por seccional</option><option value="cargo">Por cargo</option><option value="estatus">Por estatus</option><option value="sexo">Por sexo</option><option value="edad">Por edad</option><option value="cfs">Por CFS</option><option value="dashboard">Dashboard (resumen)</option><option value="cumpleanos">🎂 Cumpleaños</option><option value="aniversarios">🎉 Aniversarios de afiliación</option></select></label>
+      <label>Tipo de reporte<select id="rTipo"><option value="general">Resumen general</option><option value="seccional">Por seccional</option><option value="cargo">Por cargo</option><option value="estatus">Por estatus</option><option value="sexo">Por sexo</option><option value="edad">Por edad</option><option value="cfs">Por CFS</option><option value="dashboard">Dashboard (resumen)</option></select></label>
     </div>
     <div class="filter-actions"><button id="generarReporte">Aplicar filtros</button><button id="limpiarReporte" class="secondary">Limpiar selección</button><button id="imprimirReporte" class="secondary">Imprimir</button><button id="pdfReporte" class="secondary">Guardar PDF</button><span id="reporteInfo" class="muted"></span></div>
     <div id="reporteResumen"></div>
@@ -421,67 +422,6 @@ async function reportes(m){
   $("limpiarReporte").onclick=limpiarReporteFiltros;
   $("imprimirReporte").onclick=()=>window.print();
   $("pdfReporte").onclick=()=>guardarReportePDF();
-
-  // Reportes especiales: cumpleaños y aniversarios de afiliación.
-  const ef = document.createElement("div");
-  ef.className = "panel";
-  ef.id = "efemeridesPanel";
-  ef.innerHTML = `
-    <h2 style="margin-top:0">🎂 Cumpleaños y 🎉 aniversarios de afiliación</h2>
-    <p class="muted">Consulte los afiliados por día, semana, mes o todo el año.</p>
-    <div class="filters affiliates-filters">
-      <label>Reporte
-        <select id="efTipo">
-          <option value="cumpleanos">🎂 Cumpleaños</option>
-          <option value="aniversarios">🎉 Aniversarios de afiliación</option>
-        </select>
-      </label>
-      <label>Período
-        <select id="efPeriodo">
-          <option value="dia">Hoy</option>
-          <option value="semana">Esta semana</option>
-          <option value="mes">Este mes</option>
-          <option value="anio">Todo el año</option>
-        </select>
-      </label>
-      <label>Seccional<select id="efSeccional"></select></label>
-      <label>CFS<select id="efCfs"></select></label>
-    </div>
-    <div class="filter-actions">
-      <button id="generarEfemerides">Generar reporte</button>
-      <button id="imprimirEfemerides" class="secondary">Imprimir</button>
-      <span id="efInfo" class="muted"></span>
-    </div>
-    <div id="efTabla" class="tablewrap"><div class="empty">Seleccione el tipo y período.</div></div>
-  `;
-  m.appendChild(ef);
-  // Los reportes especiales se acceden desde el mismo combo "Tipo de reporte"
-  // para que no queden ocultos al final de la pantalla.
-  ef.style.display = "none";
-  const principal = $("reportesPrincipalPanel");
-  const alternarTipoReporte = async ()=>{
-    const tipoActual = $("rTipo")?.value || "dashboard";
-    const especial = tipoActual === "cumpleanos" || tipoActual === "aniversarios";
-    if(principal) principal.style.display = especial ? "none" : "block";
-    ef.style.display = especial ? "block" : "none";
-    if(especial){
-      $("efTipo").value = tipoActual;
-      await generarReporteEfemerides();
-    }
-  };
-  $("rTipo").addEventListener("change", alternarTipoReporte);
-
-  fillSelect("efSeccional",catalogos.seccionales,"Todas las seccionales");
-  if(perfil?.rol==="admin_seccional"){
-    $("efSeccional").value=String(perfil.seccional_id||"");
-    $("efSeccional").disabled=true;
-    cfsForEfemerides(perfil.seccional_id);
-  } else {
-    cfsForEfemerides("");
-  }
-  $("efSeccional").addEventListener("change",e=>cfsForEfemerides(e.target.value));
-  $("generarEfemerides").onclick=generarReporteEfemerides;
-  $("imprimirEfemerides").onclick=()=>window.print();
   await generarReporte();
 }
 function cfsForReport(id){const list=id?catalogos.cfs.filter(x=>String(x.seccional_id)===String(id)):catalogos.cfs;fillSelect("rCfs",list,"Todos los CFS");}
@@ -527,129 +467,6 @@ function limpiarReporteFiltros(){
   cfsForReport($("rSeccional").value);
   generarReporte();
 }
-
-function cfsForEfemerides(id){
-  const list=id?catalogos.cfs.filter(x=>String(x.seccional_id)===String(id)):catalogos.cfs;
-  fillSelect("efCfs",list,"Todos los CFS");
-}
-
-function fechaCalendarioLocal(yyyy,mm,dd){
-  return `${yyyy}-${String(mm).padStart(2,"0")}-${String(dd).padStart(2,"0")}`;
-}
-function inicioSemanaLunes(d){
-  const x=new Date(d.getFullYear(),d.getMonth(),d.getDate());
-  const day=x.getDay();
-  const diff=day===0?-6:1-day;
-  x.setDate(x.getDate()+diff);
-  return x;
-}
-function finSemanaLunes(d){
-  const x=inicioSemanaLunes(d);
-  x.setDate(x.getDate()+6);
-  return x;
-}
-function fechaDentroPeriodoEfemeride(fecha,periodo,hoy){
-  if(!fecha)return false;
-  const s=String(fecha).slice(0,10);
-  const parts=s.split("-").map(Number);
-  if(parts.length!==3 || !parts.every(Number.isFinite))return false;
-  const mm=parts[1], dd=parts[2];
-  if(periodo==="anio")return true;
-  if(periodo==="mes")return mm===hoy.getMonth()+1;
-  if(periodo==="dia")return mm===hoy.getMonth()+1 && dd===hoy.getDate();
-  if(periodo==="semana"){
-    const y=hoy.getFullYear();
-    const start=inicioSemanaLunes(hoy), end=finSemanaLunes(hoy);
-    const candidato=new Date(y,mm-1,dd);
-    return candidato>=start && candidato<=end;
-  }
-  return false;
-}
-function nombreCompletoAfiliado(a){
-  return `${a.primer_nombre||""} ${a.segundo_nombre||""} ${a.primer_apellido||""} ${a.segundo_apellido||""}`.replace(/\s+/g," ").trim();
-}
-function aniversarioAnios(fecha,hoy){
-  if(!fecha)return null;
-  const s=String(fecha).slice(0,10), y=Number(s.slice(0,4));
-  if(!y)return null;
-  let n=hoy.getFullYear()-y;
-  const mm=Number(s.slice(5,7)), dd=Number(s.slice(8,10));
-  if((hoy.getMonth()+1)<mm || ((hoy.getMonth()+1)===mm && hoy.getDate()<dd))n--;
-  return n>=0?n:null;
-}
-function ordenarEfemerides(rows,fechaKey){
-  return [...rows].sort((a,b)=>{
-    const da=String(a[fechaKey]||"").slice(5,10), db=String(b[fechaKey]||"").slice(5,10);
-    return da.localeCompare(db) || String(a.primer_apellido||"").localeCompare(String(b.primer_apellido||""),"es");
-  });
-}
-async function generarReporteEfemerides(){
-  const box=$("efTabla"); if(!box)return;
-  box.innerHTML=`<div class="loading">Generando reporte…</div>`;
-  const tipo=$("efTipo")?.value||"cumpleanos";
-  const periodo=$("efPeriodo")?.value||"dia";
-  const sec=$("efSeccional")?.value||"";
-  const cfs=$("efCfs")?.value||"";
-  const q=new URLSearchParams();
-  q.set("select","id,cedula,primer_apellido,segundo_apellido,primer_nombre,segundo_nombre,fecha_nacimiento,fecha_ingreso,seccional_id,cfs_id,activo,seccionales(nombre),cfs(nombre,codigo)");
-  if(sec)q.set("seccional_id",`eq.${sec}`);
-  if(cfs)q.set("cfs_id",`eq.${cfs}`);
-  if(perfil?.rol==="admin_seccional")q.set("seccional_id",`eq.${perfil.seccional_id}`);
-  const all=[];
-  try{
-    for(let offset=0;;offset+=1000){
-      const p=new URLSearchParams(q);
-      p.set("limit","1000"); p.set("offset",String(offset));
-      const {data}=await api("/rest/v1/afiliados?"+p.toString());
-      const rows=data||[]; all.push(...rows);
-      if(rows.length<1000)break;
-    }
-  }catch(e){
-    box.innerHTML=`<div class="msg">No fue posible generar el reporte: ${esc(e.message)}</div>`;
-    return;
-  }
-
-  const hoy=new Date();
-  const fechaKey=tipo==="cumpleanos"?"fecha_nacimiento":"fecha_ingreso";
-  let rows=all.filter(a=>a[fechaKey] && fechaDentroPeriodoEfemeride(a[fechaKey],periodo,hoy));
-  rows=ordenarEfemerides(rows,fechaKey);
-
-  const periodoLabel={dia:"Hoy",semana:"Esta semana",mes:"Este mes",anio:"Todo el año"}[periodo]||periodo;
-  const tipoLabel=tipo==="cumpleanos"?"Cumpleaños":"Aniversarios de afiliación";
-  $("efInfo").textContent=`${rows.length} registro${rows.length===1?"":"s"} — ${tipoLabel} — ${periodoLabel}`;
-
-  if(!rows.length){
-    box.innerHTML=`<div class="report-head"><strong>${esc(tipoLabel)}</strong><span>${esc(periodoLabel)}</span></div><div class="empty">No hay registros para el período seleccionado.</div>`;
-    return;
-  }
-
-  const body=rows.map(a=>{
-    const fecha=tipo==="cumpleanos"?formatDate(a.fecha_nacimiento):formatDate(a.fecha_ingreso);
-    const extra=tipo==="cumpleanos"
-      ? (calcAge(a.fecha_nacimiento)??"—")
-      : (aniversarioAnios(a.fecha_ingreso,hoy)??"—");
-    const extraLabel=tipo==="cumpleanos"?"Edad":"Años de afiliación";
-    return `<tr>
-      <td>${esc(a.cedula)}</td>
-      <td>${esc(nombreCompletoAfiliado(a))}</td>
-      <td>${esc(fecha)}</td>
-      <td>${esc(extra)}</td>
-      <td>${esc(a.seccionales?.nombre||"—")}</td>
-      <td>${esc(a.cfs?.nombre||"—")}</td>
-    </tr>`;
-  }).join("");
-
-  box.innerHTML=`
-    <div class="report-head"><strong>${esc(tipoLabel)}</strong><span>${rows.length} registro${rows.length===1?"":"s"} — ${esc(periodoLabel)}</span></div>
-    <table>
-      <thead><tr>
-        <th>Cédula</th><th>Afiliado</th><th>${tipo==="cumpleanos"?"Fecha de nacimiento":"Fecha de afiliación"}</th>
-        <th>${tipo==="cumpleanos"?"Edad":"Años de afiliación"}</th><th>Seccional</th><th>CFS</th>
-      </tr></thead>
-      <tbody>${body}</tbody>
-    </table>`;
-}
-
 async function generarReporte(){
   const box=$("reporteTabla");if(!box)return;
   box.innerHTML=`<div class="loading">Generando reporte…</div>`;
@@ -776,6 +593,198 @@ function mostrarValorCorreccion(r,campo,valor){
   const c=(catalogos.cfs||[]).find(x=>String(x.id)===String(valor));
   return c ? `${c.nombre}${c.codigo?` (${c.codigo})`:""}` : `CFS #${valor}`;
 }
+
+async function solicitudesAfiliacion(m){
+  m.innerHTML=title("Solicitudes de afiliación","Revisión y decisión de las solicitudes de afiliación recibidas por SINTRAINCES.")+`<div class="panel">
+    <div class="filters affiliates-filters">
+      <label>Buscar por cédula o nombre<input id="qAfTexto" placeholder="Ej.: 99999992 o PRUEBA"></label>
+      <label>Seccional<select id="qAfSeccional"></select></label>
+      <label>Estado<select id="qAfEstado"><option value="pendiente">Pendientes</option><option value="aprobada">Aprobadas</option><option value="rechazada">Rechazadas</option><option value="">Todas</option></select></label>
+    </div>
+    <div class="filter-actions"><button id="buscarAfiliacion">Consultar</button><button id="limpiarAfiliacion" class="secondary">Limpiar</button><span id="afSolicitudInfo" class="muted"></span></div>
+    <div id="afSolicitudesTabla" class="tablewrap"><div class="loading">Consultando solicitudes…</div></div>
+  </div><div id="afSolicitudDetalle" class="panel hidden"></div>`;
+
+  await cargarCatalogos();
+  fillSelect("qAfSeccional",catalogos.seccionales,"Todas las seccionales");
+  if(perfil?.rol==="admin_seccional"){
+    $("qAfSeccional").value=String(perfil.seccional_id||"");
+    $("qAfSeccional").disabled=true;
+  }
+  $("buscarAfiliacion").onclick=cargarSolicitudesAfiliacionAdmin;
+  $("limpiarAfiliacion").onclick=()=>{
+    $("qAfTexto").value="";
+    $("qAfEstado").value="pendiente";
+    if(perfil?.rol==="admin_seccional") $("qAfSeccional").value=String(perfil.seccional_id||"");
+    else $("qAfSeccional").value="";
+    cargarSolicitudesAfiliacionAdmin();
+  };
+  await cargarSolicitudesAfiliacionAdmin();
+}
+
+async function cargarSolicitudesAfiliacionAdmin(){
+  const box=$("afSolicitudesTabla"); if(!box)return;
+  box.innerHTML='<div class="loading">Consultando solicitudes…</div>';
+
+  const estado=$("qAfEstado")?.value||"";
+  const sec=perfil?.rol==="admin_seccional"
+    ? String(perfil.seccional_id||"")
+    : ($("qAfSeccional")?.value||"");
+  const texto=($("qAfTexto")?.value||"").trim().toLowerCase();
+
+  try{
+    const {data,error}=await sb.rpc("listar_solicitudes_afiliacion_admin",{
+      p_estado:estado||null,
+      p_seccional_id:sec?Number(sec):null
+    });
+    if(error)throw error;
+
+    let rows=Array.isArray(data)?data:[];
+    if(texto){
+      rows=rows.filter(r=>{
+        const nombre=[r.primer_nombre,r.segundo_nombre,r.primer_apellido,r.segundo_apellido]
+          .filter(Boolean).join(" ").toLowerCase();
+        return String(r.cedula||"").toLowerCase().includes(texto) || nombre.includes(texto);
+      });
+    }
+
+    $("afSolicitudInfo").textContent=`${rows.length} solicitud(es) mostrada(s)`;
+    if(!rows.length){
+      box.innerHTML='<div class="empty">No hay solicitudes con los filtros seleccionados.</div>';
+      return;
+    }
+
+    box.innerHTML=`<table><thead><tr>
+      <th>Fecha</th><th>Solicitante</th><th>Cédula</th><th>Seccional</th><th>CFS</th><th>Estado</th><th></th>
+    </tr></thead><tbody>${rows.map(r=>{
+      const nombre=[r.primer_nombre,r.segundo_nombre,r.primer_apellido,r.segundo_apellido].filter(Boolean).join(" ").trim();
+      const estadoLabel=r.estado==="pendiente"?"Pendiente":r.estado==="aprobada"?"Aprobada":"Rechazada";
+      return `<tr>
+        <td>${esc(formatDate(r.created_at))}</td>
+        <td>${esc(nombre||"—")}</td>
+        <td>${esc((r.nacionalidad||"")+"-"+(r.cedula||"—"))}</td>
+        <td>${esc(r.seccional_nombre||"—")}</td>
+        <td>${esc(r.cfs_nombre||"—")}</td>
+        <td><span class="status-pill status-${esc(r.estado)}">${estadoLabel}</span></td>
+        <td><button class="small" data-afsol="${esc(r.id)}">${r.estado==="pendiente"?"Revisar":"Ver detalle"}</button></td>
+      </tr>`;
+    }).join("")}</tbody></table>`;
+
+    box.querySelectorAll("[data-afsol]").forEach(b=>{
+      b.onclick=()=>abrirSolicitudAfiliacionAdmin(rows.find(x=>String(x.id)===String(b.dataset.afsol)));
+    });
+  }catch(e){
+    box.innerHTML=`<div class="msg">No se pudieron consultar las solicitudes de afiliación: ${esc(e.message||e)}</div>`;
+    $("afSolicitudInfo").textContent="Error de consulta";
+  }
+}
+
+async function abrirSolicitudAfiliacionAdmin(r){
+  if(!r)return;
+  const d=$("afSolicitudDetalle"); d.classList.remove("hidden");
+  d.innerHTML='<div class="loading">Cargando detalle de la solicitud…</div>';
+
+  try{
+    const {data,error}=await sb.rpc("obtener_detalle_solicitud_afiliacion_admin",{
+      p_solicitud_id:Number(r.id)
+    });
+    if(error)throw error;
+    const detalle=Array.isArray(data)?data[0]:data;
+    if(!detalle)throw new Error("No se encontró el detalle de la solicitud.");
+    r={...r,...detalle};
+  }catch(e){
+    d.innerHTML=`<div class="msg">No se pudo cargar el detalle: ${esc(e.message||e)}</div>`;
+    return;
+  }
+
+  const editable=r.estado==="pendiente";
+  const nombre=[r.primer_nombre,r.segundo_nombre,r.primer_apellido,r.segundo_apellido].filter(Boolean).join(" ").trim();
+
+  d.innerHTML=`<div class="section-head">
+    <div><h2>Solicitud N.º ${esc(r.id)}</h2><p>${esc(nombre||"—")} · C.I. ${esc((r.nacionalidad||"")+"-"+(r.cedula||"—"))} · ${esc(r.seccional_nombre||"—")}</p></div>
+    <button id="cerrarDetalleAf" class="secondary">Cerrar detalle</button>
+  </div>
+  <div class="edit-grid">
+    <div class="dato"><b>Nacionalidad</b>${esc(r.nacionalidad||"—")}</div>
+    <div class="dato"><b>Cédula</b>${esc(r.cedula||"—")}</div>
+    <div class="dato"><b>Primer apellido</b>${esc(r.primer_apellido||"—")}</div>
+    <div class="dato"><b>Segundo apellido</b>${esc(r.segundo_apellido||"—")}</div>
+    <div class="dato"><b>Primer nombre</b>${esc(r.primer_nombre||"—")}</div>
+    <div class="dato"><b>Segundo nombre</b>${esc(r.segundo_nombre||"—")}</div>
+    <div class="dato"><b>Sexo</b>${esc(r.sexo||"—")}</div>
+    <div class="dato"><b>Fecha de nacimiento</b>${esc(formatDate(r.fecha_nacimiento))} · ${esc(calcAge(r.fecha_nacimiento)??"—")} años</div>
+    <div class="dato"><b>Cargo</b>${esc(r.cargo_nombre||"—")}</div>
+    <div class="dato"><b>Seccional</b>${esc(r.seccional_nombre||"—")}</div>
+    <div class="dato"><b>CFS</b>${esc(r.cfs_nombre||"—")}</div>
+    <div class="dato"><b>Estado de residencia</b>${esc(r.estado_residencia||"—")}</div>
+    <div class="dato"><b>Ciudad</b>${esc(r.ciudad||"—")}</div>
+    <div class="dato full"><b>Dirección</b>${esc(r.direccion||"—")}</div>
+    <div class="dato"><b>Teléfono</b>${esc(r.telefono||"—")}</div>
+    <div class="dato"><b>Correo electrónico</b>${esc(r.email||"—")}</div>
+    <div class="dato full"><b>Observaciones</b>${esc(r.observaciones||"—").replace(/\n/g,"<br>")}</div>
+    <div class="dato"><b>Estado de la solicitud</b>${esc(r.estado==="pendiente"?"Pendiente":r.estado==="aprobada"?"Aprobada":"Rechazada")}</div>
+    <div class="dato"><b>Fecha de solicitud</b>${esc(new Date(r.created_at).toLocaleString("es-VE"))}</div>
+    ${r.revisado_por_nombre?`<div class="dato"><b>Revisado por</b>${esc(r.revisado_por_nombre)}</div>`:""}
+    ${r.revisado_at?`<div class="dato"><b>Fecha de revisión</b>${esc(new Date(r.revisado_at).toLocaleString("es-VE"))}</div>`:""}
+    ${r.afiliado_id?`<div class="dato"><b>Afiliado creado</b>N.º ${esc(r.afiliado_id)}</div>`:""}
+    ${r.estado==="rechazada"?`<div class="dato full"><b>Motivo del rechazo</b>${esc(r.motivo_rechazo||"No registrado.").replace(/\n/g,"<br>")}</div>`:""}
+  </div>
+  ${editable?`<div class="filter-actions">
+    <button id="aprobarSolicitudAf">Aprobar afiliación</button>
+    <button id="rechazarSolicitudAf" class="secondary">Rechazar solicitud</button>
+    <span id="afDecisionMsg" class="muted"></span>
+  </div>`:`<div class="panel" style="margin-top:12px"><b>Decisión administrativa</b><p>${r.estado==="aprobada"?"La solicitud fue aprobada y se creó el registro definitivo de afiliado.":"La solicitud fue rechazada."}</p>${r.estado==="rechazada"?`<p><b>Motivo del rechazo:</b> ${esc(r.motivo_rechazo||"No registrado.")}</p>`:""}</div>`}`;
+
+  $("cerrarDetalleAf").onclick=()=>d.classList.add("hidden");
+  if(editable){
+    $("aprobarSolicitudAf").onclick=()=>aprobarSolicitudAfiliacionAdmin(r.id);
+    $("rechazarSolicitudAf").onclick=()=>rechazarSolicitudAfiliacionAdmin(r.id);
+  }
+}
+
+async function aprobarSolicitudAfiliacionAdmin(id){
+  const msg=$("afDecisionMsg"); if(msg)msg.textContent="Aprobando y creando el afiliado…";
+  try{
+    const {data,error}=await sb.rpc("aprobar_solicitud_afiliacion",{p_solicitud_id:Number(id)});
+    if(error)throw error;
+    const afiliadoId=Array.isArray(data)?data[0]:data;
+    if(msg){
+      msg.textContent=`Solicitud aprobada. Afiliado creado correctamente (ID ${afiliadoId}).`;
+      msg.style.color="#027a48";
+    }
+    await cargarSolicitudesAfiliacionAdmin();
+  }catch(e){
+    if(msg){
+      msg.textContent="No se pudo aprobar: "+(e.message||e);
+      msg.style.color="#b42318";
+    }
+  }
+}
+
+async function rechazarSolicitudAfiliacionAdmin(id){
+  const motivo=prompt("Indique el motivo del rechazo de la solicitud:");
+  if(motivo===null)return;
+  if(!motivo.trim()){alert("Debe indicar el motivo del rechazo.");return;}
+  const msg=$("afDecisionMsg"); if(msg)msg.textContent="Rechazando…";
+  try{
+    const {data,error}=await sb.rpc("rechazar_solicitud_afiliacion",{
+      p_solicitud_id:Number(id),
+      p_motivo:motivo.trim()
+    });
+    if(error)throw error;
+    if(msg){
+      msg.textContent="Solicitud rechazada correctamente.";
+      msg.style.color="#027a48";
+    }
+    await cargarSolicitudesAfiliacionAdmin();
+  }catch(e){
+    if(msg){
+      msg.textContent="No se pudo rechazar: "+(e.message||e);
+      msg.style.color="#b42318";
+    }
+  }
+}
+
 async function solicitudes(m){
   m.innerHTML=title("Solicitudes","Revisión y decisión de solicitudes de corrección de datos de los afiliados.")+`<div class="panel">
     <div class="filters affiliates-filters">
@@ -1065,12 +1074,11 @@ function editorDirigencia(row){
   const inicioActual=row?.fecha_inicio_gestion?String(row.fecha_inicio_gestion).slice(0,10):"";
   box.innerHTML=`<div class="section-head"><div>${title(isNew?"Nuevo cargo sindical":"Gestionar cargo sindical",isNew?"Crea una posición; si no se asigna afiliado quedará VACANTE.":"Asigna, actualiza o libera el dirigente vinculado a este cargo.")}</div><button id="cerrarDirEditor" class="secondary">Cerrar</button></div>
   <div class="edit-grid">
-    <label>Órgano<select id="dEditOrgan" ${!isNew?'disabled':''}><option value="CEN">Comité Ejecutivo Nacional</option><option value="TRIBUNAL">Tribunal Disciplinario</option><option value="SECCIONAL">Directiva seccional</option></select></label>
-    <label>Seccional<select id="dEditSec" ${!isNew?'disabled':''}></select></label>
-    <label>Cargo<input id="dEditCargo" placeholder="Nombre del cargo" ${!isNew?'readonly':''}></label>
+    <label>Órgano<select id="dEditOrgan"><option value="CEN">Comité Ejecutivo Nacional</option><option value="TRIBUNAL">Tribunal Disciplinario</option><option value="SECCIONAL">Directiva seccional</option></select></label>
+    <label>Seccional<select id="dEditSec"></select></label>
+    <label>Cargo<input id="dEditCargo" placeholder="Nombre del cargo"></label>
     ${isNew?`<label>Cédula del afiliado (opcional)<input id="dEditCedula" placeholder="Dejar vacío para VACANTE"></label>`:`<label>Cédula del afiliado<input id="dEditCedula" value="${esc(row.afiliados?.cedula||"")}" placeholder="Dejar vacío para VACANTE"></label>`}
     <label>Inicio de gestión<input id="dEditInicio" type="date" value="${esc(inicioActual)}" ${!ocupado&&isNew?'disabled':''}></label>
-    ${!isNew&&ocupado?`<label>Fecha de baja / fin de gestión<input id="dFechaFinGestion" type="date" value="${esc(row.fecha_fin_gestion?String(row.fecha_fin_gestion).slice(0,10):new Date().toISOString().slice(0,10))}"></label>`:""}
   </div>
   <div class="panel" style="margin-top:12px"><div id="dAfiliadoEncontrado" class="muted">${ocupado?`Dirigente actual: <b>${esc(nombreAfiliadoDir(row.afiliados))}</b> — C.I. ${esc(row.afiliados?.cedula||"")}<br>Inicio de gestión: <b>${esc(formatDate(row.fecha_inicio_gestion)||"No registrado")}</b>`:"Cargo actualmente VACANTE."}</div></div>
   <div class="filter-actions"><button id="dBuscarAfiliado">Buscar afiliado</button><button id="dGuardarCargo">${isNew?"Crear cargo":"Guardar cambios"}</button><button id="dLiberarCargo" class="secondary" ${isNew||!ocupado?"disabled":""}>Dejar VACANTE</button><span id="dEditorMsg" class="muted"></span></div>`;
@@ -1094,10 +1102,9 @@ async function guardarDirigencia(row){
     if(!cargo)throw new Error("Indique el cargo."); if(organ==="SECCIONAL"&&!sec)throw new Error("Seleccione la seccional.");
     let afiliado_id=null;
     if(ced){ await buscarAfiliadoDir(); afiliado_id=window._dirAfiliadoEncontrado?.id||null; if(!afiliado_id)throw new Error("Debe indicar una cédula de afiliado válida."); if(!inicio)throw new Error("Indique la fecha de inicio de la gestión."); }
-    const fechaFinSeleccionada=$("dFechaFinGestion")?.value||null;
-    const body={organ,seccional_id:organ==="SECCIONAL"?Number(sec):null,cargo,afiliado_id,fecha_inicio_gestion:afiliado_id?(inicio||(row?.fecha_inicio_gestion||null)):(row?.fecha_inicio_gestion||null),fecha_fin_gestion:afiliado_id?null:(row?.afiliado_id?(fechaFinSeleccionada||new Date().toISOString().slice(0,10)):(row?.fecha_fin_gestion||null)),activo:true,updated_at:new Date().toISOString()};
+    const body={organ,seccional_id:organ==="SECCIONAL"?Number(sec):null,cargo,afiliado_id,fecha_inicio_gestion:afiliado_id?(inicio||(row?.fecha_inicio_gestion||null)):(row?.fecha_inicio_gestion||null),fecha_fin_gestion:afiliado_id?null:(row?.afiliado_id?new Date().toISOString().slice(0,10):(row?.fecha_fin_gestion||null)),activo:true,updated_at:new Date().toISOString()};
     if(row){
-      if(!afiliado_id && row.afiliado_id) body.fecha_fin_gestion=fechaFinSeleccionada||new Date().toISOString().slice(0,10);
+      if(!afiliado_id && row.afiliado_id) body.fecha_fin_gestion=new Date().toISOString().slice(0,10);
       await api(`/rest/v1/dirigencia_sindical?id=eq.${row.id}`,{method:"PATCH",headers:{"Content-Type":"application/json","Prefer":"return=minimal"},body:JSON.stringify(body)});
       msg.textContent="Cargo actualizado correctamente.";
     }else{await api("/rest/v1/dirigencia_sindical",{method:"POST",headers:{"Content-Type":"application/json","Prefer":"return=minimal"},body:JSON.stringify(body)});msg.textContent="Cargo creado correctamente.";}
@@ -1106,12 +1113,9 @@ async function guardarDirigencia(row){
 }
 
 async function liberarDirigencia(row){
-  if(!row?.id)return;
-  const fecha=$("dFechaFinGestion")?.value||new Date().toISOString().slice(0,10);
-  if(!fecha){alert("Indique la fecha de baja / fin de gestión.");return;}
-  if(!confirm(`¿Desea dejar este cargo en estado VACANTE con fecha de fin de gestión ${formatDate(fecha)}?`))return;
+  if(!row?.id)return; if(!confirm("¿Desea dejar este cargo en estado VACANTE? Se registrará hoy como fecha de fin de gestión."))return;
   const msg=$("dEditorMsg"); msg.textContent="Guardando…";
-  try{await api(`/rest/v1/dirigencia_sindical?id=eq.${row.id}`,{method:"PATCH",headers:{"Content-Type":"application/json","Prefer":"return=minimal"},body:JSON.stringify({afiliado_id:null,fecha_fin_gestion:fecha,updated_at:new Date().toISOString()})});msg.textContent="El cargo quedó VACANTE y se registró la fecha de fin de gestión.";await cargarDirigenciaTabla();}
+  try{await api(`/rest/v1/dirigencia_sindical?id=eq.${row.id}`,{method:"PATCH",headers:{"Content-Type":"application/json","Prefer":"return=minimal"},body:JSON.stringify({afiliado_id:null,fecha_fin_gestion:new Date().toISOString().slice(0,10),updated_at:new Date().toISOString()})});msg.textContent="El cargo quedó VACANTE y se registró la fecha de fin de gestión.";await cargarDirigenciaTabla();}
   catch(e){msg.textContent="No se pudo liberar el cargo: "+(e.message||e);msg.style.color="#b42318";}
 }
 
