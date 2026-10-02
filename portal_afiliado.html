@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Portal del Afiliado — SINTRAINCES — v1.52.7</title>
+<title>Portal del Afiliado — SINTRAINCES — v1.52.8</title>
 <link rel="stylesheet" href="admin.css">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.2/dist/jspdf.umd.min.js"></script>
@@ -321,11 +321,11 @@ $('loginForm').onsubmit=async e=>{
   try{
     const email=$('lEmail').value.trim();
     const password=$('lPass').value.trim();
-    const {data:{session}}=await sb.auth.getSession();
-    if(!session || session.user?.email?.toLowerCase()!==email.toLowerCase()){
-      const {data,error}=await sb.auth.signInWithPassword({email,password});
-      if(error)throw error;
-    }
+    // Siempre renovar la sesión con las credenciales actuales.
+    // Esto evita reutilizar una sesión vieja si el usuario Auth fue eliminado
+    // y creado nuevamente con el mismo correo.
+    const {data,error}=await sb.auth.signInWithPassword({email,password});
+    if(error)throw error;
     const perfilVinculado=await vincular($('lCed').value,dobISO);
     await iniciarPortal(perfilVinculado);
   }catch(e){setMsg('loginMsg',e.message||String(e))}
