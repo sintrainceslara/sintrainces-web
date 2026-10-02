@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Portal del Afiliado — SINTRAINCES</title>
+<title>Portal del Afiliado — SINTRAINCES — v1.52.6</title>
 <link rel="stylesheet" href="admin.css">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.2/dist/jspdf.umd.min.js"></script>
@@ -306,11 +306,37 @@ async function cargarReclamos(){
   if(error){$('reclamos').innerHTML='<div class="muted">No se pudieron cargar tus reclamos y sugerencias.</div>';return;}
   $('reclamos').innerHTML='<h3 style="font-size:15px;margin-bottom:8px">Mis reclamos y sugerencias</h3>'+((data||[]).map(x=>`<div class="reclamo-row"><div class="reclamo-head"><b>${esc(x.asunto||etiquetaTipo(x.tipo))}</b><span class="reclamo-estado">${esc(etiquetaEstado(x.estado))}</span></div><div class="reclamo-meta">${esc(etiquetaTipo(x.tipo))} · ${esc(etiquetaCategoria(x.categoria))} · ${fechaHora(x.created_at)}${x.fecha_hecho?' · Hecho: '+fecha(x.fecha_hecho):''}</div><div style="margin-top:8px;font-size:13px">${esc(x.descripcion||'')}</div>${x.sugerencia?`<div class="reclamo-sugerencia"><b>Sugerencia del afiliado:</b><br>${esc(x.sugerencia)}</div>`:''}${x.respuesta?`<div class="reclamo-sugerencia" style="border-left-color:#667085"><b>Respuesta de SINTRAINCES:</b><br>${esc(x.respuesta)}</div>`:''}</div>`).join('')||'<div class="muted">Aún no tienes reclamos o sugerencias registrados.</div>');
 }
-$('regForm').onsubmit=async e=>{e.preventDefault();setMsg('regMsg','Creando acceso…');if($('rPass').value!==$('rPass2').value)return setMsg('regMsg','Las contraseñas no coinciden.');let dobISO;try{dobISO=fechaVEaISO($('rDob').value)}catch(err){return setMsg('regMsg',err.message||String(err))}try{const {data,error}=await sb.auth.signUp({email:$('rEmail').value.trim(),password:$('rPass').value,options:{emailRedirectTo:new URL('portal_afiliado.html', document.baseURI).href}});if(error)throw error;if(data.session){await vincular($('rCed').value,dobISO);await iniciarPortal();}else{setMsg('regMsg','Cuenta creada. Revisa tu correo para confirmar la cuenta y luego inicia sesión.',true)}}catch(e){setMsg('regMsg',e.message||String(e))}};
-$('loginForm').onsubmit=async e=>{e.preventDefault();setMsg('loginMsg','Ingresando…');let dobISO;try{dobISO=fechaVEaISO($('lDob').value)}catch(err){return setMsg('loginMsg',err.message||String(err))}try{const {data,error}=await sb.auth.signInWithPassword({email:$('lEmail').value.trim(),password:$('lPass').value});if(error)throw error;await vincular($('lCed').value,dobISO);await iniciarPortal()}catch(e){setMsg('loginMsg',e.message||String(e))}};
+$('regForm').onsubmit=async e=>{e.preventDefault();setMsg('regMsg','Creando acceso…');if($('rPass').value!==$('rPass2').value)return setMsg('regMsg','Las contraseñas no coinciden.');let dobISO;try{dobISO=fechaVEaISO($('rDob').value)}catch(err){return setMsg('regMsg',err.message||String(err))}try{const {data,error}=await sb.auth.signUp({email:$('rEmail').value.trim(),password:$('rPass').value,options:{emailRedirectTo:new URL('index.html', document.baseURI).href}});if(error)throw error;if(data.session){await vincular($('rCed').value,dobISO);await iniciarPortal();}else{setMsg('regMsg','Cuenta creada. Revisa tu correo para confirmar la cuenta y luego inicia sesión.',true)}}catch(e){setMsg('regMsg',e.message||String(e))}};
+$('loginForm').onsubmit=async e=>{
+  e.preventDefault();
+  setMsg('loginMsg','Ingresando…');
+
+  let dobISO;
+  try{
+    dobISO=fechaVEaISO($('lDob').value)
+  }catch(err){
+    return setMsg('loginMsg',err.message||String(err))
+  }
+
+  try{
+    const email=$('lEmail').value.trim();
+    const password=$('lPass').value.trim();
+    const {data:{session}}=await sb.auth.getSession();
+
+    if(!session || session.user?.email?.toLowerCase()!==email.toLowerCase()){
+      const {data,error}=await sb.auth.signInWithPassword({email,password});
+      if(error)throw error;
+    }
+
+    await vincular($('lCed').value,dobISO);
+    await iniciarPortal();
+  }catch(e){
+    setMsg('loginMsg',e.message||String(e))
+  }
+};
 $('forgotPasswordLink').onclick=e=>{e.preventDefault();$('recoveryBox').classList.toggle('hidden');$('recoveryEmail').value=$('lEmail').value.trim();if(!$('recoveryBox').classList.contains('hidden'))$('recoveryEmail').focus()};
 $('cancelRecoveryBtn').onclick=()=>{$('recoveryBox').classList.add('hidden');$('recoveryMsg').textContent=''};
-$('recoveryForm').onsubmit=async e=>{e.preventDefault();setMsg('recoveryMsg','Enviando enlace…');try{const email=$('recoveryEmail').value.trim();if(!email)throw new Error('Indique su correo electrónico.');const redirectTo=new URL('portal_afiliado.html', document.baseURI).href;const {error}=await sb.auth.resetPasswordForEmail(email,{redirectTo});if(error)throw error;setMsg('recoveryMsg','Si existe una cuenta con ese correo, recibirás un enlace para recuperar tu contraseña. Revisa también la carpeta de correo no deseado.',true)}catch(e){setMsg('recoveryMsg',e.message||String(e))}};
+$('recoveryForm').onsubmit=async e=>{e.preventDefault();setMsg('recoveryMsg','Enviando enlace…');try{const email=$('recoveryEmail').value.trim();if(!email)throw new Error('Indique su correo electrónico.');const redirectTo=new URL('index.html', document.baseURI).href;const {error}=await sb.auth.resetPasswordForEmail(email,{redirectTo});if(error)throw error;setMsg('recoveryMsg','Si existe una cuenta con ese correo, recibirás un enlace para recuperar tu contraseña. Revisa también la carpeta de correo no deseado.',true)}catch(e){setMsg('recoveryMsg',e.message||String(e))}};
 $('passwordRecoveryForm').onsubmit=async e=>{e.preventDefault();setMsg('passwordRecoveryMsg','Actualizando contraseña…');const p1=$('newRecoveryPassword').value,p2=$('newRecoveryPassword2').value;if(p1!==p2)return setMsg('passwordRecoveryMsg','Las contraseñas no coinciden.');try{const {error}=await sb.auth.updateUser({password:p1});if(error)throw error;setMsg('passwordRecoveryMsg','Contraseña actualizada correctamente. Ya puedes ingresar con tu nueva contraseña.',true);setTimeout(async()=>{await sb.auth.signOut();location.href='index.html'},1200)}catch(e){setMsg('passwordRecoveryMsg',e.message||String(e))}};
 $('logoutBtn').onclick=async()=>{await sb.auth.signOut();location.href='index.html'};
 async function iniciarPortal(){ $('authView').classList.add('hidden');$('appView').classList.remove('hidden');try{await cargarPerfil()}catch(e){$('appView').classList.add('hidden');$('authView').classList.remove('hidden');setMsg('authMsg',e.message||String(e))}}
@@ -442,7 +468,15 @@ sb.auth.onAuthStateChange((event,session)=>{
 (async()=>{
   const {data:{session}}=await sb.auth.getSession();
   if(session && !recuperacionActiva && !window.location.hash.includes('type=recovery')){
-    try{await cargarPerfil();$('authView').classList.add('hidden');$('appView').classList.remove('hidden')}catch(e){await sb.auth.signOut()}
+    try{
+      await cargarPerfil();
+      $('authView').classList.add('hidden');
+      $('appView').classList.remove('hidden');
+    }catch(e){
+      $('appView').classList.add('hidden');
+      $('authView').classList.remove('hidden');
+      setMsg('authMsg','Sesión confirmada. Para completar el acceso, introduce tu correo, contraseña, cédula y fecha de nacimiento y pulsa «Ingresar».');
+    }
   }
 })();
 </script>
