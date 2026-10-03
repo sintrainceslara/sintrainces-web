@@ -691,3 +691,17 @@ main { min-height: 65vh; }
 .contacto-futuro p { color:#667487; margin:5px 0 0; line-height:1.55; }
 @media (max-width:980px){ .contacto-grid-moderno{grid-template-columns:1fr 1fr;} .contacto-card-principal{grid-column:1/-1;} .contacto-redes{align-items:flex-start; flex-direction:column;} .redes-lista{justify-content:flex-start;} }
 @media (max-width:760px){ .contacto-encabezado{align-items:flex-start;} .contacto-sello{width:58px;height:58px;border-radius:17px;font-size:1.5rem;} .contacto-grid-moderno{grid-template-columns:1fr;} .contacto-card-principal{grid-column:auto;} .contacto-card{min-height:0;} .contacto-redes{padding:22px;} }
+
+
+/* Afiliación en línea: destacado institucional */
+.organizacion-enlace-afiliacion,
+.organizacion-enlace-afiliacion:visited {
+  color: #c62828 !important;
+}
+.organizacion-enlace-afiliacion span,
+.organizacion-enlace-afiliacion small,
+.organizacion-enlace-afiliacion strong,
+.organizacion-enlace-afiliacion em,
+.organizacion-enlace-afiliacion b {
+  color: #c62828 !important;
+}
