@@ -715,3 +715,24 @@ main { min-height: 65vh; }
 .organizacion-enlaces .organizacion-enlace-afiliacion .organizacion-enlace-icono {
   background: #ffe6ea !important;
 }
+
+
+/* DISTRIBUCIÓN DEFINITIVA DE LA ORGANIZACIÓN
+   Tercera fila: Editorial | Estructura sindical | Organizaciones vinculadas
+   Última fila: Afiliación en línea
+*/
+@media (min-width: 981px) {
+  .organizacion-enlaces .organizacion-enlace:nth-child(7),
+  .organizacion-enlaces .organizacion-enlace:nth-child(8),
+  .organizacion-enlaces .organizacion-enlace-organizaciones {
+    grid-column: auto !important;
+  }
+  .organizacion-enlaces .organizacion-enlace-organizaciones {
+    grid-column: auto !important;
+    width: 100% !important;
+  }
+  .organizacion-enlaces .organizacion-enlace-afiliacion {
+    grid-column: 1 / -1 !important;
+    width: 100% !important;
+  }
+}
