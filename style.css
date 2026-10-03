@@ -654,7 +654,7 @@ main { min-height: 65vh; }
 .organizacion-quienes p:last-child {margin-bottom:0;}
 .acordeon-card {scroll-margin-top:22px;}
 @media (max-width:980px) {
-  .organizacion-enlaces {grid-template-columns:repeat(2,minmax(0,1fr));}
+  .organizacion-enlaces {grid-template-columns:repeat(3,minmax(0,1fr));}
 }
 @media (max-width:650px) {
   .organizacion-enlaces {grid-template-columns:1fr;gap:11px;}
@@ -721,7 +721,7 @@ main { min-height: 65vh; }
    Tercera fila: Editorial | Estructura sindical | Organizaciones vinculadas
    Última fila: Afiliación en línea
 */
-@media (min-width: 981px) {
+@media (min-width: 761px) {
   .organizacion-enlaces .organizacion-enlace:nth-child(7),
   .organizacion-enlaces .organizacion-enlace:nth-child(8),
   .organizacion-enlaces .organizacion-enlace-organizaciones {
@@ -729,7 +729,7 @@ main { min-height: 65vh; }
   }
   .organizacion-enlaces .organizacion-enlace-organizaciones {
     grid-column: auto !important;
-    width: 100% !important;
+    width: auto !important;
   }
   .organizacion-enlaces .organizacion-enlace-afiliacion {
     grid-column: 1 / -1 !important;
