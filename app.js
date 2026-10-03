@@ -1171,8 +1171,8 @@ const paginas = {
           <span class="organizacion-enlace-icono">🌐</span><span><small>RED SINDICAL</small><strong>Organizaciones vinculadas</strong><em>ASI Venezuela, CSA, CSI e ISP.</em></span><b>→</b>
         </button>
         <!-- ÚLTIMA OPCIÓN: Afiliación en línea -->
-        <a class="organizacion-enlace organizacion-enlace-afiliacion" href="solicitud_afiliacion.html">
-          <span class="organizacion-enlace-icono">📝</span><span><small>SERVICIO AL TRABAJADOR</small><strong>Afiliación en línea</strong><em>Presenta tu solicitud de afiliación a SINTRAINCES.</em></span><b>→</b>
+        <a class="organizacion-enlace organizacion-enlace-afiliacion" href="solicitud_afiliacion.html" style="grid-column:1/-1!important;color:#c62828!important;border:2px solid #c62828!important;background:#fff4f5!important;">
+          <span class="organizacion-enlace-icono" style="background:#c62828!important;color:#fff!important;">📝</span><span><small style="color:#c62828!important;">SERVICIO AL TRABAJADOR</small><strong style="color:#c62828!important;font-size:1.08rem;">Afiliación en línea</strong><em style="color:#c62828!important;">Presenta tu solicitud de afiliación a SINTRAINCES.</em></span><b style="color:#c62828!important;">→</b>
         </a>
       </div>
 
