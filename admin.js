@@ -1,4 +1,4 @@
-/* SINTRAINCES ADMIN v1.52.3 — fechas DD/MM/AAAA */
+/* SINTRAINCES ADMIN v1.54.0 — módulo de respaldo Excel /*
 /* SINTRAINCES v1.38.4 — módulo de dirigencia y CFS */
 let sb = null;
 let perfil = null;
@@ -205,6 +205,7 @@ async function render(view) {
   else if(view==="usuarios") usuarios(m);
   else if(view==="organizacion") await organizacion(m);
   else if(view==="auditoria") auditoria(m);
+  else if(view==="respaldo") await respaldoDatos(m);
 }
 
 async function afiliados(m) {
@@ -1393,6 +1394,68 @@ async function cargarAuditoriaReal(){
       return `<tr><td>${esc(new Date(r.created_at).toLocaleString("es-VE"))}</td><td>${esc(d.usuario_nombre||r.usuario_id||"—")}</td><td>${esc(d.usuario_rol||"—")}</td><td>${esc(r.accion||"—")}</td><td>${esc(r.tabla||"—")}</td><td>${esc(d.cedula||"—")}</td><td>${esc(secText)}</td><td>${esc(cambio||JSON.stringify(d))}</td></tr>`;
     }).join("")}</tbody></table>`;
   }catch(e){ box.innerHTML=`<div class="msg">No se pudo consultar la auditoría: ${esc(e.message||e)}</div>`; $("aInfo").textContent="Error de consulta"; }
+}
+
+// =====================================================
+// MÓDULO DE RESPALDO DE DATOS — v1.54
+// =====================================================
+function respaldoFechaArchivo(){
+  const d=new Date(); const p=n=>String(n).padStart(2,"0");
+  return `${d.getFullYear()}-${p(d.getMonth()+1)}-${p(d.getDate())}_${p(d.getHours())}-${p(d.getMinutes())}`;
+}
+function respaldoNombreCompleto(r){return [r?.primer_nombre,r?.segundo_nombre,r?.primer_apellido,r?.segundo_apellido].filter(Boolean).join(" ").trim();}
+async function obtenerTodosRest(path,pageSize=1000){
+  const out=[]; let offset=0;
+  while(true){
+    const sep=path.includes("?")?"&":"?";
+    const {data}=await api(`${path}${sep}limit=${pageSize}&offset=${offset}`);
+    const rows=Array.isArray(data)?data:[]; out.push(...rows);
+    if(rows.length<pageSize)break; offset+=pageSize;
+    if(offset>100000)throw new Error("El respaldo supera el límite de seguridad de 100.000 registros por tabla.");
+  }
+  return out;
+}
+function filasObjetos(rows,campos){return (rows||[]).map(r=>(campos||Object.keys(r||{})).map(k=>{const v=r?.[k];if(v==null)return "";return typeof v==="object"?JSON.stringify(v):v;}));}
+function agregarHoja(wb,nombre,rows,campos){
+  const headers=campos?.length?campos:[...new Set((rows||[]).flatMap(r=>Object.keys(r||{})))];
+  const data=headers.length?[headers,...filasObjetos(rows,headers)]:[["Sin registros"]];
+  const ws=XLSX.utils.aoa_to_sheet(data);
+  if(headers.length){ws["!autofilter"]={ref:XLSX.utils.encode_range({s:{r:0,c:0},e:{r:Math.max(0,data.length-1),c:Math.max(0,headers.length-1)}})};ws["!freeze"]={xSplit:0,ySplit:1};ws["!cols"]=headers.map(()=>({wch:18}));}
+  XLSX.utils.book_append_sheet(wb,ws,nombre.slice(0,31));
+}
+async function cargarRespaldoAfiliados(){
+  const rows=await obtenerTodosRest("/rest/v1/afiliados?select=*");
+  const secMap=new Map((catalogos.seccionales||[]).map(x=>[String(x.id),x.nombre]));
+  const cargoMap=new Map((catalogos.cargos||[]).map(x=>[String(x.id),x.nombre]));
+  const estMap=new Map((catalogos.estatus||[]).map(x=>[String(x.id),x.nombre]));
+  const cfsMap=new Map((catalogos.cfs||[]).map(x=>[String(x.id),x.nombre]));
+  return rows.map(r=>({...r,nombre_completo:respaldoNombreCompleto(r),seccional_nombre:secMap.get(String(r.seccional_id))||"",cfs_nombre:cfsMap.get(String(r.cfs_id))||"",cargo_nombre:cargoMap.get(String(r.cargo_id))||"",estatus_nombre:estMap.get(String(r.estatus_id))||""}));
+}
+async function cargarRespaldoSolicitudesAfiliacion(){
+  const {data}=await api("/rest/v1/rpc/listar_solicitudes_afiliacion_admin",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({p_estado:null,p_seccional_id:perfil?.rol==="admin_seccional"?Number(perfil.seccional_id):null})});
+  return Array.isArray(data)?data:[];
+}
+async function respaldoDatos(m){
+  m.innerHTML=title("Respaldo de datos","Descarga una copia Excel de la información a la que tienes acceso administrativo.")+`<div class="panel backup-panel"><div class="notice"><b>Importante:</b> este respaldo es una copia de los datos disponibles para tu usuario. No modifica la base de datos.</div><div class="backup-summary"><div class="stat"><span>Alcance</span><b style="font-size:18px">${esc(perfil?.rol==="admin_seccional"?"Solo tu seccional":"Todas las seccionales")}</b></div><div class="stat"><span>Formato</span><b style="font-size:18px">Excel .xlsx</b></div><div class="stat"><span>Generación</span><b style="font-size:18px">En este equipo</b></div></div><div class="filter-actions backup-actions"><button id="generarRespaldo">📥 Generar respaldo Excel</button><span id="respaldoEstado" class="muted"></span></div><div id="respaldoDetalle" class="backup-detail"></div></div>`;
+  $("generarRespaldo").onclick=generarRespaldoExcel;
+}
+async function generarRespaldoExcel(){
+  const btn=$("generarRespaldo"),estado=$("respaldoEstado"),detalle=$("respaldoDetalle");
+  if(!window.XLSX){estado.textContent="No se cargó el componente de Excel. Revise la conexión a Internet.";estado.style.color="#b42318";return;}
+  btn.disabled=true;estado.textContent="Preparando respaldo…";estado.style.color="";if(detalle)detalle.innerHTML='<div class="loading">Consultando datos. Esto puede tardar unos segundos…</div>';
+  try{
+    await cargarCatalogos();
+    const [afiliados,sec,cfs,cargos,estatus,motivos,dirigencia,reclamos,corr,auditoria,perfiles,solAf]=await Promise.all([
+      cargarRespaldoAfiliados(),obtenerTodosRest("/rest/v1/seccionales?select=*"),obtenerTodosRest("/rest/v1/cfs?select=*"),obtenerTodosRest("/rest/v1/cargos?select=*"),obtenerTodosRest("/rest/v1/estatus?select=*"),obtenerTodosRest("/rest/v1/motivos_baja?select=*"),obtenerTodosRest("/rest/v1/dirigencia_sindical?select=*"),obtenerTodosRest("/rest/v1/reclamos_sugerencias?select=*"),obtenerTodosRest("/rest/v1/solicitudes_correccion_datos?select=*"),obtenerTodosRest("/rest/v1/auditoria?select=*"),obtenerTodosRest("/rest/v1/perfiles?select=*"),cargarRespaldoSolicitudesAfiliacion()
+    ]);
+    const wb=XLSX.utils.book_new();
+    agregarHoja(wb,"Resumen",[{fecha_generacion:new Date().toLocaleString("es-VE"),usuario:perfil?.nombre_completo||window.SINTRAINCES_EMAIL||"",rol:roleLabel(perfil?.rol),seccional:perfil?.rol==="admin_seccional"?(catalogos.seccionales.find(x=>String(x.id)===String(perfil.seccional_id))?.nombre||""):"Todas",nota:"Respaldo generado desde el panel administrativo SINTRAINCES. El alcance depende de RLS y del rol autenticado."}]);
+    agregarHoja(wb,"Afiliados",afiliados);agregarHoja(wb,"Seccionales",sec);agregarHoja(wb,"CFS",cfs);agregarHoja(wb,"Cargos",cargos);agregarHoja(wb,"Estatus",estatus);agregarHoja(wb,"Motivos baja",motivos);agregarHoja(wb,"Dirigencia",dirigencia);agregarHoja(wb,"Solic. afiliacion",solAf);agregarHoja(wb,"Correcciones",corr);agregarHoja(wb,"Reclamos",reclamos);agregarHoja(wb,"Auditoria",auditoria);agregarHoja(wb,"Perfiles",perfiles);
+    const nombre=`RESPALDO_SINTRAINCES_${respaldoFechaArchivo()}.xlsx`;XLSX.writeFile(wb,nombre,{compression:true});
+    const resumen=[["Afiliados",afiliados.length],["Seccionales",sec.length],["CFS",cfs.length],["Cargos",cargos.length],["Estatus",estatus.length],["Dirigencia",dirigencia.length],["Solicitudes de afiliación",solAf.length],["Correcciones",corr.length],["Reclamos y sugerencias",reclamos.length],["Auditoría",auditoria.length],["Perfiles",perfiles.length]];
+    if(detalle)detalle.innerHTML=`<div class="backup-ok"><b>Respaldo generado correctamente.</b><p>Archivo: <strong>${esc(nombre)}</strong></p><div class="backup-counts">${resumen.map(([k,v])=>`<span>${esc(k)}: <b>${v}</b></span>`).join("")}</div></div>`;
+    estado.textContent="Descarga iniciada correctamente.";estado.style.color="#027a48";
+  }catch(e){console.error("Respaldo Excel",e);if(detalle)detalle.innerHTML=`<div class="msg">No se pudo generar el respaldo: ${esc(e?.message||e)}</div>`;estado.textContent="Error al generar el respaldo.";estado.style.color="#b42318";}finally{btn.disabled=false;}
 }
 
 function showPasswordPanel(){$("passwordPanel").classList.remove("hidden");$("newPassword").focus();}
