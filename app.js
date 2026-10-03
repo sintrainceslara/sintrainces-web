@@ -1164,15 +1164,15 @@ const paginas = {
         <button class="organizacion-enlace" type="button" onclick="abrirSeccionOrganizacion('editorialSINTRAINCES')">
           <span class="organizacion-enlace-icono">▥</span><span><small>CAMPAÑA PERMANENTE</small><strong>Editorial</strong><em>“¡Rescatemos y salvemos al INCES!”</em></span><b>→</b>
         </button>
-        <a class="organizacion-enlace" href="solicitud_afiliacion.html" style="text-decoration:none;color:inherit">
-          <span class="organizacion-enlace-icono">📝</span><span><small>SERVICIO AL TRABAJADOR</small><strong>Afiliación en línea</strong><em>Presenta tu solicitud de afiliación a SINTRAINCES.</em></span><b>→</b>
-        </a>
         <button class="organizacion-enlace" type="button" onclick="mostrarPagina('estructura')">
           <span class="organizacion-enlace-icono">👥</span><span><small>ORGANIZACIÓN</small><strong>Estructura sindical</strong><em>Comité Ejecutivo, Tribunal y 25 seccionales.</em></span><b>→</b>
         </button>
         <button class="organizacion-enlace organizacion-enlace-secundario" type="button" onclick="mostrarPagina('organizaciones')">
           <span class="organizacion-enlace-icono">🌐</span><span><small>RED SINDICAL</small><strong>Organizaciones vinculadas</strong><em>ASI Venezuela, CSA, CSI e ISP.</em></span><b>→</b>
         </button>
+        <a class="organizacion-enlace organizacion-enlace-afiliacion" href="solicitud_afiliacion.html">
+          <span class="organizacion-enlace-icono">📝</span><span><small>SERVICIO AL TRABAJADOR</small><strong>Afiliación en línea</strong><em>Presenta tu solicitud de afiliación a SINTRAINCES.</em></span><b>→</b>
+        </a>
       </div>
 
       <article id="quienesSomosSINTRAINCES" class="tarjeta organizacion-quienes">
