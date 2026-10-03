@@ -647,7 +647,7 @@ main { min-height: 65vh; }
 .organizacion-enlace em {display:block;margin-top:5px;color:#68778c;font-style:normal;font-size:.82rem;line-height:1.35;}
 .organizacion-enlace > b {color:#164b91;font-size:1.3rem;transition:transform .2s ease;}
 .organizacion-enlace:hover > b {transform:translateX(4px);}
-.organizacion-enlace-secundario {grid-column:1 / -1;min-height:92px;background:#f7f9fc;}
+.organizacion-enlace-secundario {grid-column:auto;min-height:118px;background:#f7f9fc;}
 .organizacion-quienes {display:grid;grid-template-columns:.7fr 1.3fr;gap:28px;align-items:start;margin-bottom:24px;padding:24px 26px;border-left:4px solid var(--azul);}
 .organizacion-quienes h2 {margin:4px 0 0;color:#123b78;}
 .organizacion-quienes p {margin:0 0 9px;color:#5b6b80;line-height:1.65;}
