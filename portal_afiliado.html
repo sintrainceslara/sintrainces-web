@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Portal del Afiliado — SINTRAINCES — v1.52.8</title>
+<title>Portal del Afiliado — SINTRAINCES — v1.52.9</title>
 <link rel="stylesheet" href="admin.css">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.2/dist/jspdf.umd.min.js"></script>
@@ -34,8 +34,11 @@ body{background:#f4f7fb}.portal{max-width:1080px;margin:24px auto;padding:16px}.
             <div id="regMsg" class="msg"></div>
           </form>
         </section>
-        <section class="card" style="box-shadow:none;border:1px solid #e5e9ef">
-          <h2>Ya tengo acceso</h2>
+        <div style="grid-column:1/-1;text-align:center;margin-top:2px">
+          <a id="showLoginLink" class="auth-link" href="#">Ingresar al portal</a>
+        </div>
+        <section id="loginPanel" class="card hidden" style="box-shadow:none;border:1px solid #e5e9ef;grid-column:1/-1">
+          <h2>Ingresar al portal</h2>
           <form id="loginForm">
             <label>Correo electrónico<input id="lEmail" type="email" required></label>
             <label>Contraseña<input id="lPass" type="password" required></label>
@@ -312,7 +315,8 @@ async function cargarReclamos(){
   if(error){$('reclamos').innerHTML='<div class="muted">No se pudieron cargar tus reclamos y sugerencias.</div>';return;}
   $('reclamos').innerHTML='<h3 style="font-size:15px;margin-bottom:8px">Mis reclamos y sugerencias</h3>'+((data||[]).map(x=>`<div class="reclamo-row"><div class="reclamo-head"><b>${esc(x.asunto||etiquetaTipo(x.tipo))}</b><span class="reclamo-estado">${esc(etiquetaEstado(x.estado))}</span></div><div class="reclamo-meta">${esc(etiquetaTipo(x.tipo))} · ${esc(etiquetaCategoria(x.categoria))} · ${fechaHora(x.created_at)}${x.fecha_hecho?' · Hecho: '+fecha(x.fecha_hecho):''}</div><div style="margin-top:8px;font-size:13px">${esc(x.descripcion||'')}</div>${x.sugerencia?`<div class="reclamo-sugerencia"><b>Sugerencia del afiliado:</b><br>${esc(x.sugerencia)}</div>`:''}${x.respuesta?`<div class="reclamo-sugerencia" style="border-left-color:#667085"><b>Respuesta de SINTRAINCES:</b><br>${esc(x.respuesta)}</div>`:''}</div>`).join('')||'<div class="muted">Aún no tienes reclamos o sugerencias registrados.</div>');
 }
-$('regForm').onsubmit=async e=>{e.preventDefault();setMsg('regMsg','Creando acceso…');if($('rPass').value!==$('rPass2').value)return setMsg('regMsg','Las contraseñas no coinciden.');let dobISO;try{dobISO=fechaVEaISO($('rDob').value)}catch(err){return setMsg('regMsg',err.message||String(err))}try{const {data,error}=await sb.auth.signUp({email:$('rEmail').value.trim(),password:$('rPass').value,options:{emailRedirectTo:new URL('index.html', document.baseURI).href}});if(error)throw error;if(data?.user?.identities?.length===0)throw new Error('Este correo electrónico ya está registrado. Si ya tienes una cuenta, inicia sesión o utiliza “¿Olvidaste tu contraseña?” para recuperar el acceso.');if(data.session){const perfilVinculado=await vincular($('rCed').value,dobISO);await iniciarPortal(perfilVinculado);}else{setMsg('regMsg','Cuenta creada. Revisa tu correo para confirmar la cuenta y luego inicia sesión.',true)}}catch(e){setMsg('regMsg',e.message||String(e))}};
+$('showLoginLink').onclick=e=>{e.preventDefault();$('loginPanel').classList.toggle('hidden');if(!$('loginPanel').classList.contains('hidden')){$('loginPanel').scrollIntoView({behavior:'smooth',block:'start'});$('lEmail').focus()}};
+$('regForm').onsubmit=async e=>{e.preventDefault();setMsg('regMsg','Creando acceso…');if($('rPass').value!==$('rPass2').value)return setMsg('regMsg','Las contraseñas no coinciden.');let dobISO;try{dobISO=fechaVEaISO($('rDob').value)}catch(err){return setMsg('regMsg',err.message||String(err))}try{const {data,error}=await sb.auth.signUp({email:$('rEmail').value.trim(),password:$('rPass').value,options:{emailRedirectTo:new URL('index.html', document.baseURI).href}});if(error)throw error;if(data.session){const perfilVinculado=await vincular($('rCed').value,dobISO);await iniciarPortal(perfilVinculado);}else{setMsg('regMsg','Cuenta creada. Revisa tu correo para confirmar la cuenta y luego inicia sesión.',true)}}catch(e){setMsg('regMsg',e.message||String(e))}};
 $('loginForm').onsubmit=async e=>{
   e.preventDefault();
   setMsg('loginMsg','Ingresando…');
