@@ -1,4 +1,4 @@
-/* SINTRAINCES ADMIN v1.54.0 — módulo de respaldo Excel /*
+/* SINTRAINCES ADMIN v1.55.1 — Listados y recolección de firmas */
 /* SINTRAINCES v1.38.4 — módulo de dirigencia y CFS */
 let sb = null;
 let perfil = null;
@@ -204,8 +204,8 @@ async function render(view) {
   else if(view==="solicitudes_afiliacion") await solicitudesAfiliacion(m);
   else if(view==="usuarios") usuarios(m);
   else if(view==="organizacion") await organizacion(m);
+  else if(view==="listados_firmas") await listadosFirmas(m);
   else if(view==="auditoria") auditoria(m);
-  else if(view==="respaldo") await respaldoDatos(m);
 }
 
 async function afiliados(m) {
@@ -436,8 +436,7 @@ async function reportes(m){
       <label>Estatus<select id="rEstatus"></select></label>
       <label>Edad mínima<input id="rMin" type="number" min="0" max="120"></label>
       <label>Edad máxima<input id="rMax" type="number" min="0" max="120"></label>
-      <label>Tipo de reporte<select id="rTipo"><option value="general">Resumen general</option><option value="seccional">Por seccional</option><option value="cargo">Por cargo</option><option value="estatus">Por estatus</option><option value="sexo">Por sexo</option><option value="edad">Por edad</option><option value="cfs">Por CFS</option><option value="cumpleaneros">🎂 Cumpleañeros</option><option value="aniversarios">🎉 Aniversarios</option><option value="dashboard">Dashboard (resumen)</option></select></label>
-      <label id="rPeriodoWrap" style="display:none">Período<select id="rPeriodo"><option value="dia">Día</option><option value="semana">Semana</option><option value="mes" selected>Mes</option><option value="anio">Todo el año</option></select></label>
+      <label>Tipo de reporte<select id="rTipo"><option value="general">Resumen general</option><option value="seccional">Por seccional</option><option value="cargo">Por cargo</option><option value="estatus">Por estatus</option><option value="sexo">Por sexo</option><option value="edad">Por edad</option><option value="cfs">Por CFS</option><option value="dashboard">Dashboard (resumen)</option></select></label>
     </div>
     <div class="filter-actions"><button id="generarReporte">Aplicar filtros</button><button id="limpiarReporte" class="secondary">Limpiar selección</button><button id="imprimirReporte" class="secondary">Imprimir</button><button id="pdfReporte" class="secondary">Guardar PDF</button><span id="reporteInfo" class="muted"></span></div>
     <div id="reporteResumen"></div>
@@ -454,9 +453,6 @@ async function reportes(m){
     cfsForReport(perfil.seccional_id);
   }
   $("rSeccional").addEventListener("change",e=>cfsForReport(e.target.value));
-  $("rTipo").addEventListener("change",()=>{actualizarPeriodoEspecial();});
-  $("rPeriodo").addEventListener("change",()=>{if(["cumpleaneros","aniversarios"].includes($("rTipo").value))generarReporte();});
-  actualizarPeriodoEspecial();
   $("generarReporte").onclick=generarReporte;
   $("limpiarReporte").onclick=limpiarReporteFiltros;
   $("imprimirReporte").onclick=()=>window.print();
@@ -483,69 +479,6 @@ function reportStats(rows){
 function distHtml(title,items,rows){
   return `<div class="report-dist"><h3>${esc(title)}</h3><table><thead><tr><th>Clasificación</th><th>Total</th><th>%</th></tr></thead><tbody>${items.map(([k,v])=>`<tr><td>${esc(k)}</td><td>${v}</td><td>${rows.length?((v*100/rows.length).toFixed(1)+"%"):"0%"}</td></tr>`).join("")}</tbody></table></div>`;
 }
-
-function mesDiaFecha(valor){
-  const s=String(valor||"").slice(0,10);
-  const m=s.match(/^\d{4}-(\d{2})-(\d{2})$/);
-  return m ? {mes:Number(m[1]),dia:Number(m[2])} : null;
-}
-function ordenarPorMesDia(rows,campo){
-  return [...rows].filter(r=>mesDiaFecha(r[campo])).sort((a,b)=>{
-    const da=mesDiaFecha(a[campo]), db=mesDiaFecha(b[campo]);
-    return da.mes-db.mes || da.dia-db.dia ||
-      String(a.primer_apellido||"").localeCompare(String(b.primer_apellido||""),"es",{sensitivity:"base"});
-  });
-}
-function aniosDesdeFecha(valor){
-  // En Aniversarios, la antigüedad corresponde al aniversario del año que se está mostrando:
-  // año actual menos año de la fecha de afiliación. No se resta un año por estar antes del día exacto.
-  const s=String(valor||"").slice(0,10);
-  if(!/^\d{4}-\d{2}-\d{2}$/.test(s))return "—";
-  const y=Number(s.slice(0,4));
-  const actual=new Date().getFullYear();
-  if(!Number.isFinite(y)||y>actual)return "—";
-  return Math.max(0,actual-y);
-}
-function rangoEspecial(periodo){
-  const hoy=new Date(); hoy.setHours(0,0,0,0);
-  const diaSemana=(hoy.getDay()+6)%7;
-  if(periodo==="dia") return {inicio:new Date(hoy),fin:new Date(hoy)};
-  if(periodo==="semana"){
-    const inicio=new Date(hoy); inicio.setDate(hoy.getDate()-diaSemana);
-    const fin=new Date(inicio); fin.setDate(inicio.getDate()+6);
-    return {inicio,fin};
-  }
-  if(periodo==="anio") return {inicio:new Date(hoy.getFullYear(),0,1),fin:new Date(hoy.getFullYear(),11,31)};
-  return {inicio:new Date(hoy.getFullYear(),hoy.getMonth(),1),fin:new Date(hoy.getFullYear(),hoy.getMonth()+1,0)};
-}
-function dentroRangoMesDia(valor,rango){
-  const md=mesDiaFecha(valor); if(!md)return false;
-  let fecha=new Date(rango.inicio.getFullYear(),md.mes-1,md.dia); fecha.setHours(0,0,0,0);
-  if(md.mes===2 && md.dia===29 && fecha.getMonth()!==1) fecha=new Date(rango.inicio.getFullYear(),1,28);
-  return fecha>=rango.inicio && fecha<=rango.fin;
-}
-function etiquetaPeriodoEspecial(periodo){return {dia:"de hoy",semana:"de esta semana",mes:"del mes",anio:"de todo el año"}[periodo]||"del mes";}
-function actualizarPeriodoEspecial(){
-  const tipo=$("rTipo")?.value, wrap=$("rPeriodoWrap"); if(!wrap)return;
-  wrap.style.display=(tipo==="cumpleaneros"||tipo==="aniversarios")?"":"none";
-}
-function renderReporteEspecial(rows,tipo){
-  const campo=tipo==="cumpleaneros"?"fecha_nacimiento":"fecha_ingreso";
-  const periodo=$("rPeriodo")?.value||"mes", rango=rangoEspecial(periodo);
-  const filtrados=ordenarPorMesDia(rows,campo).filter(r=>dentroRangoMesDia(r[campo],rango));
-  const titulo=tipo==="cumpleaneros"?`🎂 Cumpleañeros ${etiquetaPeriodoEspecial(periodo)}`:`🎉 Aniversarios de afiliación ${etiquetaPeriodoEspecial(periodo)}`;
-  const extraHead=tipo==="cumpleaneros"?"<th>Edad</th>":"<th>Años de afiliación</th>";
-  const fixedBody=filtrados.map(a=>{
-    const md=mesDiaFecha(a[campo]);
-    const nombre=`${a.primer_nombre||""} ${a.segundo_nombre||""} ${a.primer_apellido||""} ${a.segundo_apellido||""}`.replace(/\s+/g," ").trim();
-    const extraVal=tipo==="cumpleaneros"?edadActualRow(a):aniosDesdeFecha(a[campo]);
-    const extraTexto=tipo==="cumpleaneros"?extraVal:(extraVal==="—"?extraVal:`${extraVal} año${extraVal===1?"":"s"}`);
-    return `<tr><td>${md?String(md.dia).padStart(2,"0")+"/"+String(md.mes).padStart(2,"0"):"—"}</td><td>${esc(nombre)}</td><td>${esc(a.nacionalidad||"")}-${esc(a.cedula||"—")}</td><td>${esc(a.seccionales?.nombre||"—")}</td><td>${esc(a.cargos?.nombre||"—")}</td><td>${esc(extraTexto)}</td></tr>`;
-  }).join("");
-  const vacio=tipo==="cumpleaneros"?"cumpleañeros":"aniversarios de afiliación";
-  return `<div class="report-special"><div class="report-head"><strong>${titulo}</strong><span>${filtrados.length} registro(s)</span></div>${filtrados.length?`<table><thead><tr><th>Día</th><th>Afiliado</th><th>Cédula</th><th>Seccional</th><th>Cargo</th>${extraHead}</tr></thead><tbody>${fixedBody}</tbody></table>`:`<div class="empty">No hay ${vacio} ${etiquetaPeriodoEspecial(periodo)} con los filtros seleccionados.</div>`}</div>`;
-}
-
 function renderReporteEstadistico(rows,tipo){
   const st=reportStats(rows), c=st.card;
   // El Dashboard muestra todos los resúmenes estadísticos, pero nunca el listado individual.
@@ -589,15 +522,12 @@ async function generarReporte(){
   try{for(let offset=0;;offset+=1000){const p=new URLSearchParams(q);p.set("limit","1000");p.set("offset",String(offset));const {data}=await api("/rest/v1/afiliados?"+p.toString());const rows=data||[];all.push(...rows);if(rows.length<1000)break;}}
   catch(e){box.innerHTML=`<div class="msg">No fue posible generar el reporte: ${esc(e.message)}</div>`;return;}
   const rows=sortCedula(all.map(r=>({...r,edad:edadActualRow(r)}))),tipo=$("rTipo").value;
-  const names={general:"Resumen general",seccional:"Reporte por seccional",cargo:"Reporte por cargo",estatus:"Reporte por estatus",cfs:"Reporte por CFS",sexo:"Reporte por sexo",edad:"Reporte por edad",dashboard:"Dashboard (resumen)",cumpleaneros:"Cumpleañeros del mes",aniversarios:"Aniversarios de afiliación del mes"};
+  const names={general:"Resumen general",seccional:"Reporte por seccional",cargo:"Reporte por cargo",estatus:"Reporte por estatus",cfs:"Reporte por CFS",sexo:"Reporte por sexo",edad:"Reporte por edad",dashboard:"Dashboard (resumen)"};
   $("reporteInfo").textContent=`${rows.length} registros`;
-  $("reporteResumen").innerHTML=(tipo==="cumpleaneros"||tipo==="aniversarios")?renderReporteEspecial(rows,tipo):renderReporteEstadistico(rows,tipo);
+  $("reporteResumen").innerHTML=renderReporteEstadistico(rows,tipo);
   const head=`<div class="report-head"><strong>${names[tipo]||"Reporte"}</strong><span>${rows.length} registros</span></div>`;
   if(tipo==="dashboard"){
     box.innerHTML=head+`<div class="empty">El Dashboard muestra únicamente el resumen general. Seleccione otro tipo de reporte para consultar el listado detallado.</div>`;return;
-  }
-  if(tipo==="cumpleaneros"||tipo==="aniversarios"){
-    box.innerHTML=`<div class="empty">La lista se muestra en el resumen superior.</div>`;return;
   }
   if(!rows.length){box.innerHTML=head+`<div class="empty">No hay registros con los filtros seleccionados.</div>`;return;}
   box.innerHTML=head+`<table><thead><tr><th>Cédula</th><th>Apellidos</th><th>Nombres</th><th>Sexo</th><th>Edad</th><th>F. nacimiento</th><th>F. ingreso</th><th>Seccional</th><th>Cargo</th><th>Estatus</th><th>CFS</th><th>Ciudad</th></tr></thead><tbody>${rows.map(a=>`<tr><td>${esc(a.cedula)}</td><td>${esc(`${a.primer_apellido||""} ${a.segundo_apellido||""}`.trim())}</td><td>${esc(`${a.primer_nombre||""} ${a.segundo_nombre||""}`.trim())}</td><td>${esc(a.sexo||"—")}</td><td>${esc(a.edad??"—")}</td><td>${formatDate(a.fecha_nacimiento)}</td><td>${formatDate(a.fecha_ingreso)}</td><td>${esc(a.seccionales?.nombre||"—")}</td><td>${esc(a.cargos?.nombre||"—")}</td><td>${esc(a.estatus?.nombre||"—")}</td><td>${esc(a.cfs?.nombre||"—")}</td><td>${esc(a.ciudad||"—")}</td></tr>`).join("")}</tbody></table>`;
@@ -647,7 +577,7 @@ async function reclamosAdmin(m){
 async function cargarReclamosAdmin(){
   const box=$("reclamosTabla"); if(!box)return; box.innerHTML='<div class="loading">Consultando casos…</div>';
   const q=new URLSearchParams();
-  q.set("select","id,afiliado_id,tipo,categoria,asunto,descripcion,fecha_hecho,cfs_id,ciudad,sugerencia,estado,respuesta,atendido_por,created_at,updated_at,afiliados!inner(id,cedula,nacionalidad,primer_apellido,segundo_apellido,primer_nombre,segundo_nombre,seccional_id,seccionales(id,nombre)),cfs(id,nombre,codigo)");
+  q.set("select","id,afiliado_id,tipo,categoria,asunto,descripcion,fecha_hecho,cfs_id,ciudad,sugerencia,estado,respuesta,atendido_por,created_at,updated_at,afiliados(id,cedula,nacionalidad,primer_apellido,segundo_apellido,primer_nombre,segundo_nombre,seccional_id,seccionales(id,nombre)),cfs(id,nombre,codigo)");
   q.set("order","created_at.desc"); q.set("limit","1000");
   const sec=$("qReclamoSeccional")?.value, tipo=$("qReclamoTipo")?.value, cat=$("qReclamoCategoria")?.value, est=$("qReclamoEstado")?.value;
   if(sec)q.set("afiliados.seccional_id",`eq.${sec}`);
@@ -1171,7 +1101,7 @@ async function cargarDirigenciaTabla(){
 
 function editorDirigencia(row){
   const box=$("dirigenciaEditor"); if(!box)return; box.classList.remove("hidden");
-  const isNew=!row, ocupado=!!row?.afiliado_id; window._dirEditingRow=row||null; window._dirAfiliadoEncontrado=row?.afiliados||null;
+  const isNew=!row, ocupado=!!row?.afiliado_id;
   const inicioActual=row?.fecha_inicio_gestion?String(row.fecha_inicio_gestion).slice(0,10):"";
   box.innerHTML=`<div class="section-head"><div>${title(isNew?"Nuevo cargo sindical":"Gestionar cargo sindical",isNew?"Crea una posición; si no se asigna afiliado quedará VACANTE.":"Asigna, actualiza o libera el dirigente vinculado a este cargo.")}</div><button id="cerrarDirEditor" class="secondary">Cerrar</button></div>
   <div class="edit-grid">
@@ -1202,7 +1132,7 @@ async function guardarDirigencia(row){
     const organ=$("dEditOrgan").value, sec=$("dEditSec").value||null, cargo=$("dEditCargo").value.trim(), ced=$("dEditCedula").value.trim(), inicio=$("dEditInicio").value||null;
     if(!cargo)throw new Error("Indique el cargo."); if(organ==="SECCIONAL"&&!sec)throw new Error("Seleccione la seccional.");
     let afiliado_id=null;
-    if(ced){ await buscarAfiliadoDir(); afiliado_id=window._dirAfiliadoEncontrado?.id||null; if(!afiliado_id)throw new Error("El afiliado no está habilitado para esta asignación."); await validarAfiliadoDirigente(window._dirAfiliadoEncontrado,organ,sec,row); if(!inicio)throw new Error("Indique la fecha de inicio de la gestión."); }
+    if(ced){ await buscarAfiliadoDir(); afiliado_id=window._dirAfiliadoEncontrado?.id||null; if(!afiliado_id)throw new Error("Debe indicar una cédula de afiliado válida."); if(!inicio)throw new Error("Indique la fecha de inicio de la gestión."); }
     const body={organ,seccional_id:organ==="SECCIONAL"?Number(sec):null,cargo,afiliado_id,fecha_inicio_gestion:afiliado_id?(inicio||(row?.fecha_inicio_gestion||null)):(row?.fecha_inicio_gestion||null),fecha_fin_gestion:afiliado_id?null:(row?.afiliado_id?new Date().toISOString().slice(0,10):(row?.fecha_fin_gestion||null)),activo:true,updated_at:new Date().toISOString()};
     if(row){
       if(!afiliado_id && row.afiliado_id) body.fecha_fin_gestion=new Date().toISOString().slice(0,10);
@@ -1282,30 +1212,6 @@ async function generarConstanciaDirigente(row){
   }catch(e){alert("No se pudo generar la constancia de dirigente: "+(e.message||e));}
 }
 
-
-async function validarAfiliadoDirigente(afiliado, organ, sec, row){
-  if(!afiliado?.id) throw new Error("Debe indicar un afiliado válido.");
-  if(organ==="SECCIONAL" && String(afiliado.seccional_id)!==String(sec)){
-    const nombreTrabajo=catalogos.seccionales.find(x=>String(x.id)===String(sec))?.nombre||"la seccional seleccionada";
-    const nombreAfiliado=afiliado.seccionales?.nombre||"otra seccional";
-    throw new Error(`El afiliado pertenece a ${nombreAfiliado} y no puede ser asignado a ${nombreTrabajo}. En una directiva seccional solo se permiten afiliados de esa misma seccional.`);
-  }
-  const q=new URLSearchParams({
-    select:"id,organ,seccional_id,cargo,activo",
-    afiliado_id:`eq.${afiliado.id}`,
-    activo:"eq.true",
-    limit:"100"
-  });
-  const {data}=await api("/rest/v1/dirigencia_sindical?"+q.toString());
-  const conflictos=(Array.isArray(data)?data:[]).filter(x=>String(x.id)!==String(row?.id||""));
-  if(conflictos.length){
-    const c=conflictos[0];
-    const donde=c.organ==="SECCIONAL" ? `la Directiva Seccional${c.seccional_id?` (seccional ${catalogos.seccionales.find(s=>String(s.id)===String(c.seccional_id))?.nombre||c.seccional_id})`:""}` : c.organ==="CEN" ? "el Comité Ejecutivo Nacional" : "el Tribunal Disciplinario";
-    throw new Error(`El afiliado ya tiene un cargo dirigente activo en ${donde}: ${c.cargo||"cargo sin nombre"}. Un afiliado no puede ocupar dos cargos dirigentes activos.`);
-  }
-  return true;
-}
-
 async function buscarAfiliadoDir(){
   const ced=$("dEditCedula")?.value.trim(); const out=$("dAfiliadoEncontrado"); if(!ced){out.textContent="Deje vacío para mantener el cargo VACANTE."; return;}
   out.textContent="Buscando afiliado…";
@@ -1314,15 +1220,8 @@ async function buscarAfiliadoDir(){
     const {data}=await api("/rest/v1/afiliados?"+q.toString()); const a=Array.isArray(data)?data[0]:null;
     if(!a){out.textContent="No se encontró un afiliado con esa cédula.";return;}
     if(!a.activo){out.textContent="El afiliado existe, pero su registro está inactivo. No se puede asignar este cargo.";return;}
-    const organ=$("dEditOrgan")?.value, sec=$("dEditSec")?.value||"";
-    try{
-      await validarAfiliadoDirigente(a,organ,sec,window._dirEditingRow||null);
-      window._dirAfiliadoEncontrado=a;
-      out.innerHTML=`<b>${esc(nombreAfiliadoDir(a))}</b> — C.I. ${esc(a.cedula)} — Seccional: ${esc(a.seccionales?.nombre||"—")}<br><span class="muted">Afiliado habilitado para esta asignación.</span>`;
-    }catch(err){
-      window._dirAfiliadoEncontrado=null;
-      out.innerHTML=`<span style="color:#b42318">${esc(err.message||err)}</span>`;
-    }
+    window._dirAfiliadoEncontrado=a;
+    out.innerHTML=`<b>${esc(nombreAfiliadoDir(a))}</b> — C.I. ${esc(a.cedula)} — Seccional: ${esc(a.seccionales?.nombre||"—")}`;
   }catch(e){out.textContent="No se pudo buscar: "+(e.message||e);}
 }
 
@@ -1342,6 +1241,124 @@ function editorCfs(row){
   const box=$("cfsEditor");box.classList.remove("hidden");const isNew=!row;box.innerHTML=`<div class="section-head"><div>${title(isNew?"Nuevo CFS":"Editar CFS",isNew?"Registra un nuevo Centro de Formación.":"Puedes renombrar o inactivar el CFS; la eliminación física no se utiliza.")}</div><button id="cerrarCfs" class="secondary">Cerrar</button></div><div class="edit-grid"><label>Código<input id="cfsCodigo" value="${esc(row?.codigo||"")}" placeholder="Ej.: CFS-001"></label><label>Nombre del CFS<input id="cfsNombre" value="${esc(row?.nombre||"")}" required></label><label>Seccional<select id="cfsSec"></select></label><label>Estado<select id="cfsActivo"><option value="true">Activo</option><option value="false">Inactivo</option></select></label></div><div class="filter-actions"><button id="guardarCfs">${isNew?"Crear CFS":"Guardar cambios"}</button><span id="cfsEditorMsg" class="muted"></span></div>`;fillSelect("cfsSec",catalogos.seccionales,"Seleccione seccional");if(row){$("cfsCodigo").value=row.codigo||"";$("cfsSec").value=String(row.seccional_id||"");$("cfsActivo").value=String(row.activo!==false);}$("cfsSec").disabled=false;$("cerrarCfs").onclick=()=>box.classList.add("hidden");$("guardarCfs").onclick=()=>guardarCfs(row);
 }
 async function guardarCfs(row){const msg=$("cfsEditorMsg");msg.textContent="Guardando…";try{const nombre=$("cfsNombre").value.trim(),codigo=$("cfsCodigo").value.trim()||null,sec=Number($("cfsSec").value||0),activo=$("cfsActivo").value==="true";if(!nombre||!sec)throw new Error("Indique nombre y seccional.");const body={nombre,codigo,seccional_id:sec,activo};if(row)await api(`/rest/v1/cfs?id=eq.${row.id}`,{method:"PATCH",headers:{"Content-Type":"application/json","Prefer":"return=minimal"},body:JSON.stringify(body)});else await api("/rest/v1/cfs",{method:"POST",headers:{"Content-Type":"application/json","Prefer":"return=minimal"},body:JSON.stringify(body)});msg.textContent="CFS guardado correctamente.";await cargarCatalogos();await cargarCfsGestTabla();}catch(e){msg.textContent="No se pudo guardar: "+(e.message||e);msg.style.color="#b42318";}}
+
+function formatoCedula(v){
+  const d=String(v||"").replace(/\D/g,"");
+  if(!d)return "";
+  return d.replace(/\B(?=(\d{3})+(?!\d))/g,".");
+}
+function nombreEntradaWord(r){
+  const n=String(r.nombre_completo||"").trim().replace(/\s+/g," ");
+  return `${n}, C.I. ${formatoCedula(r.cedula)};`;
+}
+async function listadosFirmas(m){
+  m.innerHTML=title("Listados y recolección de firmas","Historial permanente por seccional. El orden corresponde exactamente al orden en que se registran las cédulas.")+`\
+  <div class="panel">
+    ${perfil?.rol==="admin_seccional"?`<div class="section-head"><div><h2>Nuevo listado</h2><p class="muted">Solo el administrador de la seccional puede crear y registrar afiliados.</p></div></div>
+    <div class="filters affiliates-filters">
+      <label>Nombre del listado<input id="lfTitulo" placeholder="Ej.: Rendición de cuentas 2026"></label>
+    </div>
+    <div class="filter-actions"><button id="lfCrear">Crear listado</button><span id="lfMsg" class="muted"></span></div>`:
+    `<div class="panel" style="margin:0 0 14px 0"><b>Administrador nacional:</b> consulta histórica e impresión. La modificación de listados está reservada al administrador seccional.</div>`}
+    <div class="section-head" style="margin-top:18px"><div><h2>Historial de listados</h2><p class="muted">Los listados anteriores se conservan y pueden volver a imprimirse.</p></div><button id="lfRecargar" class="secondary">Actualizar</button></div>
+    <div id="lfTabla" class="tablewrap"><div class="loading">Consultando listados…</div></div>
+  </div>
+  <div id="lfDetalle" class="panel hidden"></div>`;
+  if(perfil?.rol==="admin_seccional"){
+    $("lfCrear").onclick=crearListadoFirma;
+  }
+  $("lfRecargar").onclick=()=>cargarListadosFirmas();
+  await cargarListadosFirmas();
+}
+async function cargarListadosFirmas(){
+  const box=$("lfTabla"); if(!box)return;
+  box.innerHTML='<div class="loading">Consultando listados…</div>';
+  try{
+    const q=new URLSearchParams({select:"id,nombre,seccional_id,creado_por,creado_en,activo,seccionales(nombre)",order:"creado_en.desc",limit:"500"});
+    if(perfil?.rol==="admin_seccional") q.set("seccional_id",`eq.${perfil.seccional_id}`);
+    const {data}=await api("/rest/v1/sintrainces_v1551_listados_firmas?"+q.toString());
+    const rows=Array.isArray(data)?data:[];
+    if(!rows.length){box.innerHTML='<div class="empty">Todavía no existen listados guardados.</div>';return;}
+    box.innerHTML=`<table><thead><tr><th>Fecha</th><th>Seccional</th><th>Listado</th><th>Estado</th><th>Acciones</th></tr></thead><tbody>${rows.map(r=>`<tr><td>${esc(new Date(r.creado_en).toLocaleString("es-VE"))}</td><td>${esc(r.seccionales?.nombre||"—")}</td><td><b>${esc(r.nombre)}</b></td><td>${r.activo?"Activo":"Cerrado"}</td><td><button class="secondary" data-lf-ver="${esc(r.id)}">Ver</button> <button class="secondary" data-lf-word="${esc(r.id)}">Word</button></td></tr>`).join("")}</tbody></table>`;
+    box.querySelectorAll("[data-lf-ver]").forEach(b=>b.onclick=()=>abrirListadoFirma(Number(b.dataset.lfVer)));
+    box.querySelectorAll("[data-lf-word]").forEach(b=>b.onclick=()=>generarWordListadoFirma(Number(b.dataset.lfWord)));
+  }catch(e){box.innerHTML=`<div class="msg">No se pudieron consultar los listados: ${esc(e.message||e)}</div>`;}
+}
+async function crearListadoFirma(){
+  const titulo=$("lfTitulo")?.value.trim(), msg=$("lfMsg");
+  if(!titulo){msg.textContent="Indique el nombre del listado.";msg.style.color="#b42318";return;}
+  msg.textContent="Creando…";msg.style.color="";
+  try{
+    const {data,error}=await sb.rpc("sintrainces_v1551_crear_listado_firmas",{p_nombre:titulo});
+    if(error)throw error;
+    msg.textContent="Listado creado correctamente.";msg.style.color="#027a48";$("lfTitulo").value="";
+    await cargarListadosFirmas();
+    await abrirListadoFirma(Number(data));
+  }catch(e){msg.textContent="No se pudo crear: "+(e.message||e);msg.style.color="#b42318";}
+}
+async function obtenerListadoFirma(id){
+  const q=new URLSearchParams({select:"id,nombre,seccional_id,creado_por,creado_en,activo,seccionales(nombre)",id:`eq.${id}`,limit:"1"});
+  const {data}=await api("/rest/v1/sintrainces_v1551_listados_firmas?"+q.toString());
+  return Array.isArray(data)?data[0]:null;
+}
+async function obtenerEntradasListado(id){
+  const q=new URLSearchParams({select:"id,orden,afiliado_id,cedula,agregado_en,activo,afiliados(primer_nombre,segundo_nombre,primer_apellido,segundo_apellido,nacionalidad,cedula)",listado_id:`eq.${id}`,activo:"eq.true",order:"orden.asc",limit:"5000"});
+  const {data}=await api("/rest/v1/sintrainces_v1551_listados_firmas_detalle?"+q.toString());
+  return (Array.isArray(data)?data:[]).map(r=>({...r,nombre_completo:[r.afiliados?.primer_nombre,r.afiliados?.segundo_nombre,r.afiliados?.primer_apellido,r.afiliados?.segundo_apellido].filter(Boolean).join(" ")||"—"}));
+}
+async function abrirListadoFirma(id){
+  const box=$("lfDetalle");if(!box)return;
+  box.classList.remove("hidden");box.innerHTML='<div class="loading">Consultando listado…</div>';box.scrollIntoView({behavior:"smooth",block:"start"});
+  try{
+    const listado=await obtenerListadoFirma(id);if(!listado)throw new Error("No se encontró el listado.");
+    const rows=await obtenerEntradasListado(id);
+    box.innerHTML=`<div class="section-head"><div><h2>${esc(listado.nombre)}</h2><p class="muted">${esc(listado.seccionales?.nombre||"—")} · creado ${esc(new Date(listado.creado_en).toLocaleString("es-VE"))}</p></div><div><button id="lfWordDetalle">Generar Word</button> <button id="lfCerrarDetalle" class="secondary">Cerrar</button></div></div>
+      ${perfil?.rol==="admin_seccional"&&listado.activo?`<div class="panel" style="margin-bottom:14px"><div class="filters affiliates-filters"><label>Cédula del afiliado<input id="lfCedula" inputmode="numeric" maxlength="12" placeholder="Ej.: 12.345.678"></label></div><div class="filter-actions"><button id="lfAgregar">Agregar al listado</button><span id="lfEntradaMsg" class="muted">Se validará que la cédula exista, esté activa y pertenezca a esta seccional.</span></div></div>`:""}
+      <div id="lfEntradasTabla" class="tablewrap">${renderEntradasListado(rows)}</div>`;
+    $("lfCerrarDetalle").onclick=()=>box.classList.add("hidden");
+    $("lfWordDetalle").onclick=()=>generarWordDesdeFilas(listado,rows);
+    if(perfil?.rol==="admin_seccional"&&listado.activo){
+      $("lfCedula").addEventListener("input",e=>{e.target.value=formatoCedula(e.target.value);});
+      $("lfCedula").addEventListener("keydown",e=>{if(e.key==="Enter"){e.preventDefault();agregarEntradaListado(id);}});
+      $("lfAgregar").onclick=()=>agregarEntradaListado(id);
+      $("lfEntradasTabla").querySelectorAll("[data-lf-eliminar]").forEach(b=>b.onclick=async()=>{
+        if(!confirm("¿Desea retirar esta entrada del listado? La entrada no se elimina físicamente; queda anulada para conservar el historial."))return;
+        try{const {error}=await sb.rpc("sintrainces_v1551_anular_afiliado",{p_detalle_id:Number(b.dataset.lfEliminar)});if(error)throw error;await abrirListadoFirma(id);await cargarListadosFirmas();}
+        catch(e){alert("No se pudo retirar: "+(e.message||e));}
+      });
+    }
+  }catch(e){box.innerHTML=`<div class="msg">No se pudo abrir el listado: ${esc(e.message||e)}</div>`;}
+}
+function renderEntradasListado(rows){
+  if(!rows.length)return '<div class="empty">No hay afiliados registrados en este listado todavía.</div>';
+  return `<table><thead><tr><th>#</th><th>Afiliado</th><th>C.I.</th><th>Fecha/hora de ingreso</th>${perfil?.rol==="admin_seccional"?"<th>Corrección</th>":""}</tr></thead><tbody>${rows.map(r=>`<tr><td>${esc(r.orden)}</td><td>${esc(r.nombre_completo)}</td><td>${esc(formatoCedula(r.cedula))}</td><td>${esc(new Date(r.agregado_en).toLocaleString("es-VE"))}</td>${perfil?.rol==="admin_seccional"?`<td><button class="secondary" data-lf-eliminar="${esc(r.id)}">Retirar</button></td>`:""}</tr>`).join("")}</tbody></table>`;
+}
+async function agregarEntradaListado(id){
+  const input=$("lfCedula"),msg=$("lfEntradaMsg");const ced=String(input?.value||"").replace(/\D/g,"");if(!ced){msg.textContent="Ingrese una cédula.";msg.style.color="#b42318";return;}
+  msg.textContent="Validando y agregando…";msg.style.color="";$("lfAgregar").disabled=true;
+  try{
+    const {error}=await sb.rpc("sintrainces_v1551_agregar_afiliado",{p_listado_id:id,p_cedula:ced});
+    if(error)throw error;
+    input.value="";msg.textContent="Afiliado agregado correctamente, respetando el orden de ingreso.";msg.style.color="#027a48";
+    await abrirListadoFirma(id);await cargarListadosFirmas();
+  }catch(e){msg.textContent=(e.message||e).replace(/^.*?: /,"");msg.style.color="#b42318";}
+  finally{if($("lfAgregar"))$("lfAgregar").disabled=false;}
+}
+async function generarWordListadoFirma(id){
+  try{
+    const listado=await obtenerListadoFirma(id);if(!listado)throw new Error("No se encontró el listado.");
+    const rows=await obtenerEntradasListado(id);
+    generarWordDesdeFilas(listado,rows);
+  }catch(e){alert("No se pudo generar el Word: "+(e.message||e));}
+}
+function generarWordDesdeFilas(listado,rows){
+  const sec=String(listado.seccionales?.nombre||"");
+  const entries=(rows||[]).map(nombreEntradaWord).join(" ");
+  const fecha=new Date(listado.creado_en).toLocaleDateString("es-VE");
+  const html=`<!doctype html><html><head><meta charset="utf-8"><title>${esc(listado.nombre)}</title><style>body{font-family:Arial,sans-serif;font-size:12pt;margin:2.5cm}h1{text-align:center;font-size:16pt}p{margin:4px 0 12px}.lista{line-height:1.65;text-align:justify}</style></head><body><h1>SINTRAINCES</h1><p><b>Listado:</b> ${esc(listado.nombre)}</p><p><b>Seccional:</b> ${esc(sec)}</p><p><b>Fecha de creación:</b> ${esc(fecha)}</p><p><b>Total de afiliados:</b> ${esc(rows?.length||0)}</p><hr><div class="lista">${esc(entries).replace(/;/g,";<br>")}</div></body></html>`;
+  const blob=new Blob([html],{type:"application/msword;charset=utf-8"});const a=document.createElement("a");a.href=URL.createObjectURL(blob);a.download=`Listado_${String(listado.nombre||"SINTRAINCES").replace(/[^A-Za-z0-9ÁÉÍÓÚáéíóúÑñ_-]+/g,"_")}.doc`;document.body.appendChild(a);a.click();setTimeout(()=>{URL.revokeObjectURL(a.href);a.remove();},1000);
+}
+
 
 async function auditoria(m){
   m.innerHTML=title("Auditoría","Registro de cambios y movimientos realizados sobre afiliados y Reclamos y Sugerencias.")+`<div class="panel">
@@ -1394,68 +1411,6 @@ async function cargarAuditoriaReal(){
       return `<tr><td>${esc(new Date(r.created_at).toLocaleString("es-VE"))}</td><td>${esc(d.usuario_nombre||r.usuario_id||"—")}</td><td>${esc(d.usuario_rol||"—")}</td><td>${esc(r.accion||"—")}</td><td>${esc(r.tabla||"—")}</td><td>${esc(d.cedula||"—")}</td><td>${esc(secText)}</td><td>${esc(cambio||JSON.stringify(d))}</td></tr>`;
     }).join("")}</tbody></table>`;
   }catch(e){ box.innerHTML=`<div class="msg">No se pudo consultar la auditoría: ${esc(e.message||e)}</div>`; $("aInfo").textContent="Error de consulta"; }
-}
-
-// =====================================================
-// MÓDULO DE RESPALDO DE DATOS — v1.54
-// =====================================================
-function respaldoFechaArchivo(){
-  const d=new Date(); const p=n=>String(n).padStart(2,"0");
-  return `${d.getFullYear()}-${p(d.getMonth()+1)}-${p(d.getDate())}_${p(d.getHours())}-${p(d.getMinutes())}`;
-}
-function respaldoNombreCompleto(r){return [r?.primer_nombre,r?.segundo_nombre,r?.primer_apellido,r?.segundo_apellido].filter(Boolean).join(" ").trim();}
-async function obtenerTodosRest(path,pageSize=1000){
-  const out=[]; let offset=0;
-  while(true){
-    const sep=path.includes("?")?"&":"?";
-    const {data}=await api(`${path}${sep}limit=${pageSize}&offset=${offset}`);
-    const rows=Array.isArray(data)?data:[]; out.push(...rows);
-    if(rows.length<pageSize)break; offset+=pageSize;
-    if(offset>100000)throw new Error("El respaldo supera el límite de seguridad de 100.000 registros por tabla.");
-  }
-  return out;
-}
-function filasObjetos(rows,campos){return (rows||[]).map(r=>(campos||Object.keys(r||{})).map(k=>{const v=r?.[k];if(v==null)return "";return typeof v==="object"?JSON.stringify(v):v;}));}
-function agregarHoja(wb,nombre,rows,campos){
-  const headers=campos?.length?campos:[...new Set((rows||[]).flatMap(r=>Object.keys(r||{})))];
-  const data=headers.length?[headers,...filasObjetos(rows,headers)]:[["Sin registros"]];
-  const ws=XLSX.utils.aoa_to_sheet(data);
-  if(headers.length){ws["!autofilter"]={ref:XLSX.utils.encode_range({s:{r:0,c:0},e:{r:Math.max(0,data.length-1),c:Math.max(0,headers.length-1)}})};ws["!freeze"]={xSplit:0,ySplit:1};ws["!cols"]=headers.map(()=>({wch:18}));}
-  XLSX.utils.book_append_sheet(wb,ws,nombre.slice(0,31));
-}
-async function cargarRespaldoAfiliados(){
-  const rows=await obtenerTodosRest("/rest/v1/afiliados?select=*");
-  const secMap=new Map((catalogos.seccionales||[]).map(x=>[String(x.id),x.nombre]));
-  const cargoMap=new Map((catalogos.cargos||[]).map(x=>[String(x.id),x.nombre]));
-  const estMap=new Map((catalogos.estatus||[]).map(x=>[String(x.id),x.nombre]));
-  const cfsMap=new Map((catalogos.cfs||[]).map(x=>[String(x.id),x.nombre]));
-  return rows.map(r=>({...r,nombre_completo:respaldoNombreCompleto(r),seccional_nombre:secMap.get(String(r.seccional_id))||"",cfs_nombre:cfsMap.get(String(r.cfs_id))||"",cargo_nombre:cargoMap.get(String(r.cargo_id))||"",estatus_nombre:estMap.get(String(r.estatus_id))||""}));
-}
-async function cargarRespaldoSolicitudesAfiliacion(){
-  const {data}=await api("/rest/v1/rpc/listar_solicitudes_afiliacion_admin",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({p_estado:null,p_seccional_id:perfil?.rol==="admin_seccional"?Number(perfil.seccional_id):null})});
-  return Array.isArray(data)?data:[];
-}
-async function respaldoDatos(m){
-  m.innerHTML=title("Respaldo de datos","Descarga una copia Excel de la información a la que tienes acceso administrativo.")+`<div class="panel backup-panel"><div class="notice"><b>Importante:</b> este respaldo es una copia de los datos disponibles para tu usuario. No modifica la base de datos.</div><div class="backup-summary"><div class="stat"><span>Alcance</span><b style="font-size:18px">${esc(perfil?.rol==="admin_seccional"?"Solo tu seccional":"Todas las seccionales")}</b></div><div class="stat"><span>Formato</span><b style="font-size:18px">Excel .xlsx</b></div><div class="stat"><span>Generación</span><b style="font-size:18px">En este equipo</b></div></div><div class="filter-actions backup-actions"><button id="generarRespaldo">📥 Generar respaldo Excel</button><span id="respaldoEstado" class="muted"></span></div><div id="respaldoDetalle" class="backup-detail"></div></div>`;
-  $("generarRespaldo").onclick=generarRespaldoExcel;
-}
-async function generarRespaldoExcel(){
-  const btn=$("generarRespaldo"),estado=$("respaldoEstado"),detalle=$("respaldoDetalle");
-  if(!window.XLSX){estado.textContent="No se cargó el componente de Excel. Revise la conexión a Internet.";estado.style.color="#b42318";return;}
-  btn.disabled=true;estado.textContent="Preparando respaldo…";estado.style.color="";if(detalle)detalle.innerHTML='<div class="loading">Consultando datos. Esto puede tardar unos segundos…</div>';
-  try{
-    await cargarCatalogos();
-    const [afiliados,sec,cfs,cargos,estatus,motivos,dirigencia,reclamos,corr,auditoria,perfiles,solAf]=await Promise.all([
-      cargarRespaldoAfiliados(),obtenerTodosRest("/rest/v1/seccionales?select=*"),obtenerTodosRest("/rest/v1/cfs?select=*"),obtenerTodosRest("/rest/v1/cargos?select=*"),obtenerTodosRest("/rest/v1/estatus?select=*"),obtenerTodosRest("/rest/v1/motivos_baja?select=*"),obtenerTodosRest("/rest/v1/dirigencia_sindical?select=*"),obtenerTodosRest("/rest/v1/reclamos_sugerencias?select=*"),obtenerTodosRest("/rest/v1/solicitudes_correccion_datos?select=*"),obtenerTodosRest("/rest/v1/auditoria?select=*"),obtenerTodosRest("/rest/v1/perfiles?select=*"),cargarRespaldoSolicitudesAfiliacion()
-    ]);
-    const wb=XLSX.utils.book_new();
-    agregarHoja(wb,"Resumen",[{fecha_generacion:new Date().toLocaleString("es-VE"),usuario:perfil?.nombre_completo||window.SINTRAINCES_EMAIL||"",rol:roleLabel(perfil?.rol),seccional:perfil?.rol==="admin_seccional"?(catalogos.seccionales.find(x=>String(x.id)===String(perfil.seccional_id))?.nombre||""):"Todas",nota:"Respaldo generado desde el panel administrativo SINTRAINCES. El alcance depende de RLS y del rol autenticado."}]);
-    agregarHoja(wb,"Afiliados",afiliados);agregarHoja(wb,"Seccionales",sec);agregarHoja(wb,"CFS",cfs);agregarHoja(wb,"Cargos",cargos);agregarHoja(wb,"Estatus",estatus);agregarHoja(wb,"Motivos baja",motivos);agregarHoja(wb,"Dirigencia",dirigencia);agregarHoja(wb,"Solic. afiliacion",solAf);agregarHoja(wb,"Correcciones",corr);agregarHoja(wb,"Reclamos",reclamos);agregarHoja(wb,"Auditoria",auditoria);agregarHoja(wb,"Perfiles",perfiles);
-    const nombre=`RESPALDO_SINTRAINCES_${respaldoFechaArchivo()}.xlsx`;XLSX.writeFile(wb,nombre,{compression:true});
-    const resumen=[["Afiliados",afiliados.length],["Seccionales",sec.length],["CFS",cfs.length],["Cargos",cargos.length],["Estatus",estatus.length],["Dirigencia",dirigencia.length],["Solicitudes de afiliación",solAf.length],["Correcciones",corr.length],["Reclamos y sugerencias",reclamos.length],["Auditoría",auditoria.length],["Perfiles",perfiles.length]];
-    if(detalle)detalle.innerHTML=`<div class="backup-ok"><b>Respaldo generado correctamente.</b><p>Archivo: <strong>${esc(nombre)}</strong></p><div class="backup-counts">${resumen.map(([k,v])=>`<span>${esc(k)}: <b>${v}</b></span>`).join("")}</div></div>`;
-    estado.textContent="Descarga iniciada correctamente.";estado.style.color="#027a48";
-  }catch(e){console.error("Respaldo Excel",e);if(detalle)detalle.innerHTML=`<div class="msg">No se pudo generar el respaldo: ${esc(e?.message||e)}</div>`;estado.textContent="Error al generar el respaldo.";estado.style.color="#b42318";}finally{btn.disabled=false;}
 }
 
 function showPasswordPanel(){$("passwordPanel").classList.remove("hidden");$("newPassword").focus();}
