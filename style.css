@@ -693,15 +693,25 @@ main { min-height: 65vh; }
 @media (max-width:760px){ .contacto-encabezado{align-items:flex-start;} .contacto-sello{width:58px;height:58px;border-radius:17px;font-size:1.5rem;} .contacto-grid-moderno{grid-template-columns:1fr;} .contacto-card-principal{grid-column:auto;} .contacto-card{min-height:0;} .contacto-redes{padding:22px;} }
 
 
-/* Afiliación en línea: destacado institucional */
-.organizacion-enlace-afiliacion,
-.organizacion-enlace-afiliacion:visited {
+/* Afiliación en línea: última opción y destacada en rojo */
+.organizacion-enlaces .organizacion-enlace-afiliacion {
+  grid-column: 1 / -1;
+  color: #c62828 !important;
+  border-color: #e7a4ad !important;
+  background: linear-gradient(145deg, #fff8f9, #fff1f3) !important;
+}
+.organizacion-enlaces .organizacion-enlace-afiliacion:visited,
+.organizacion-enlaces .organizacion-enlace-afiliacion:hover,
+.organizacion-enlaces .organizacion-enlace-afiliacion:focus {
   color: #c62828 !important;
 }
-.organizacion-enlace-afiliacion span,
-.organizacion-enlace-afiliacion small,
-.organizacion-enlace-afiliacion strong,
-.organizacion-enlace-afiliacion em,
-.organizacion-enlace-afiliacion b {
+.organizacion-enlaces .organizacion-enlace-afiliacion .organizacion-enlace-icono,
+.organizacion-enlaces .organizacion-enlace-afiliacion small,
+.organizacion-enlaces .organizacion-enlace-afiliacion strong,
+.organizacion-enlaces .organizacion-enlace-afiliacion em,
+.organizacion-enlaces .organizacion-enlace-afiliacion b {
   color: #c62828 !important;
+}
+.organizacion-enlaces .organizacion-enlace-afiliacion .organizacion-enlace-icono {
+  background: #ffe6ea !important;
 }
