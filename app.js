@@ -1167,7 +1167,7 @@ const paginas = {
         <button class="organizacion-enlace" type="button" onclick="mostrarPagina('estructura')">
           <span class="organizacion-enlace-icono">👥</span><span><small>ORGANIZACIÓN</small><strong>Estructura sindical</strong><em>Comité Ejecutivo, Tribunal y 25 seccionales.</em></span><b>→</b>
         </button>
-        <button class="organizacion-enlace organizacion-enlace-organizaciones" type="button" onclick="mostrarPagina('organizaciones')">
+        <button class="organizacion-enlace organizacion-enlace-organizaciones" type="button" onclick="mostrarPagina('organizaciones')" style="grid-column:3 / 4 !important; width:100% !important;">
           <span class="organizacion-enlace-icono">🌐</span><span><small>RED SINDICAL</small><strong>Organizaciones vinculadas</strong><em>ASI Venezuela, CSA, CSI e ISP.</em></span><b>→</b>
         </button>
         <!-- ÚLTIMA OPCIÓN: Afiliación en línea -->
