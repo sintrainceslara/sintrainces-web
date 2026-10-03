@@ -496,7 +496,7 @@ function ordenarPorMesDia(rows,campo){
   });
 }
 function aniosDesdeFecha(valor){
-  const s=String(valor||"").slice(0,10); if(!/^\\d{4}-\\d{2}-\\d{2}$/.test(s))return "—";
+  const s=String(valor||"").slice(0,10); if(!/^\d{4}-\d{2}-\d{2}$/.test(s))return "—";
   const [y,m,d]=s.split("-").map(Number), now=new Date();
   let n=now.getFullYear()-y;
   const cumple=new Date(now.getFullYear(),m-1,d);
@@ -536,7 +536,8 @@ function renderReporteEspecial(rows,tipo){
     const md=mesDiaFecha(a[campo]);
     const nombre=`${a.primer_nombre||""} ${a.segundo_nombre||""} ${a.primer_apellido||""} ${a.segundo_apellido||""}`.replace(/\s+/g," ").trim();
     const extraVal=tipo==="cumpleaneros"?edadActualRow(a):aniosDesdeFecha(a[campo]);
-    return `<tr><td>${md?String(md.dia).padStart(2,"0")+"/"+String(md.mes).padStart(2,"0"):"—"}</td><td>${esc(nombre)}</td><td>${esc(a.nacionalidad||"")}-${esc(a.cedula||"—")}</td><td>${esc(a.seccionales?.nombre||"—")}</td><td>${esc(a.cargos?.nombre||"—")}</td><td>${esc(extraVal)}</td></tr>`;
+    const extraTexto=tipo==="cumpleaneros"?extraVal:(extraVal==="—"?extraVal:`${extraVal} año${extraVal===1?"":"s"}`);
+    return `<tr><td>${md?String(md.dia).padStart(2,"0")+"/"+String(md.mes).padStart(2,"0"):"—"}</td><td>${esc(nombre)}</td><td>${esc(a.nacionalidad||"")}-${esc(a.cedula||"—")}</td><td>${esc(a.seccionales?.nombre||"—")}</td><td>${esc(a.cargos?.nombre||"—")}</td><td>${esc(extraTexto)}</td></tr>`;
   }).join("");
   const vacio=tipo==="cumpleaneros"?"cumpleañeros":"aniversarios de afiliación";
   return `<div class="report-special"><div class="report-head"><strong>${titulo}</strong><span>${filtrados.length} registro(s)</span></div>${filtrados.length?`<table><thead><tr><th>Día</th><th>Afiliado</th><th>Cédula</th><th>Seccional</th><th>Cargo</th>${extraHead}</tr></thead><tbody>${fixedBody}</tbody></table>`:`<div class="empty">No hay ${vacio} ${etiquetaPeriodoEspecial(periodo)} con los filtros seleccionados.</div>`}</div>`;
