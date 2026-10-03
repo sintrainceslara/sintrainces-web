@@ -1457,7 +1457,7 @@ function generarWordDesdeFilas(listado,rows){
   const sec=String(listado.seccionales?.nombre||"");
   const entries=(rows||[]).map(nombreEntradaWord).join(" ");
   const fecha=new Date(listado.creado_en).toLocaleDateString("es-VE");
-  const html=`<!doctype html><html><head><meta charset="utf-8"><title>${esc(listado.nombre)}</title><style>body{font-family:Arial,sans-serif;font-size:12pt;margin:2.5cm}h1{text-align:center;font-size:16pt}p{margin:4px 0 12px}.lista{line-height:1.65;text-align:justify}</style></head><body><h1>SINTRAINCES</h1><p><b>Listado:</b> ${esc(listado.nombre)}</p><p><b>Seccional:</b> ${esc(sec)}</p><p><b>Fecha de creación:</b> ${esc(fecha)}</p><p><b>Total de afiliados:</b> ${esc(rows?.length||0)}</p><hr><div class="lista">${esc(entries).replace(/;/g,";<br>")}</div></body></html>`;
+  const html=`<!doctype html><html><head><meta charset="utf-8"><title>${esc(listado.nombre)}</title><style>body{font-family:Arial,sans-serif;font-size:12pt;margin:2.5cm}h1{text-align:center;font-size:16pt}p{margin:4px 0 12px}.lista{line-height:1.65;text-align:justify}</style></head><body><h1>SINTRAINCES</h1><p><b>Listado:</b> ${esc(listado.nombre)}</p><p><b>Seccional:</b> ${esc(sec)}</p><p><b>Fecha de creación:</b> ${esc(fecha)}</p><p><b>Total de afiliados:</b> ${esc(rows?.length||0)}</p><hr><div class="lista">${esc(entries)}</div></body></html>`;
   const blob=new Blob([html],{type:"application/msword;charset=utf-8"});const a=document.createElement("a");a.href=URL.createObjectURL(blob);a.download=`Listado_${String(listado.nombre||"SINTRAINCES").replace(/[^A-Za-z0-9ÁÉÍÓÚáéíóúÑñ_-]+/g,"_")}.doc`;document.body.appendChild(a);a.click();setTimeout(()=>{URL.revokeObjectURL(a.href);a.remove();},1000);
 }
 
