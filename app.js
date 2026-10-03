@@ -1170,6 +1170,7 @@ const paginas = {
         <button class="organizacion-enlace organizacion-enlace-secundario" type="button" onclick="mostrarPagina('organizaciones')">
           <span class="organizacion-enlace-icono">🌐</span><span><small>RED SINDICAL</small><strong>Organizaciones vinculadas</strong><em>ASI Venezuela, CSA, CSI e ISP.</em></span><b>→</b>
         </button>
+        <!-- ÚLTIMA OPCIÓN: Afiliación en línea -->
         <a class="organizacion-enlace organizacion-enlace-afiliacion" href="solicitud_afiliacion.html">
           <span class="organizacion-enlace-icono">📝</span><span><small>SERVICIO AL TRABAJADOR</small><strong>Afiliación en línea</strong><em>Presenta tu solicitud de afiliación a SINTRAINCES.</em></span><b>→</b>
         </a>
