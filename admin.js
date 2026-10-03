@@ -435,7 +435,7 @@ async function reportes(m){
       <label>Estatus<select id="rEstatus"></select></label>
       <label>Edad mínima<input id="rMin" type="number" min="0" max="120"></label>
       <label>Edad máxima<input id="rMax" type="number" min="0" max="120"></label>
-      <label>Tipo de reporte<select id="rTipo"><option value="general">Resumen general</option><option value="seccional">Por seccional</option><option value="cargo">Por cargo</option><option value="estatus">Por estatus</option><option value="sexo">Por sexo</option><option value="edad">Por edad</option><option value="cfs">Por CFS</option><option value="dashboard">Dashboard (resumen)</option></select></label>
+      <label>Tipo de reporte<select id="rTipo"><option value="general">Resumen general</option><option value="seccional">Por seccional</option><option value="cargo">Por cargo</option><option value="estatus">Por estatus</option><option value="sexo">Por sexo</option><option value="edad">Por edad</option><option value="cfs">Por CFS</option><option value="cumpleaneros">🎂 Cumpleañeros</option><option value="aniversarios">🎉 Aniversarios</option><option value="dashboard">Dashboard (resumen)</option></select></label>
     </div>
     <div class="filter-actions"><button id="generarReporte">Aplicar filtros</button><button id="limpiarReporte" class="secondary">Limpiar selección</button><button id="imprimirReporte" class="secondary">Imprimir</button><button id="pdfReporte" class="secondary">Guardar PDF</button><span id="reporteInfo" class="muted"></span></div>
     <div id="reporteResumen"></div>
@@ -478,6 +478,52 @@ function reportStats(rows){
 function distHtml(title,items,rows){
   return `<div class="report-dist"><h3>${esc(title)}</h3><table><thead><tr><th>Clasificación</th><th>Total</th><th>%</th></tr></thead><tbody>${items.map(([k,v])=>`<tr><td>${esc(k)}</td><td>${v}</td><td>${rows.length?((v*100/rows.length).toFixed(1)+"%"):"0%"}</td></tr>`).join("")}</tbody></table></div>`;
 }
+
+function mesDiaFecha(valor){
+  const s=String(valor||"").slice(0,10);
+  const m=s.match(/^\d{4}-(\d{2})-(\d{2})$/);
+  return m ? {mes:Number(m[1]),dia:Number(m[2])} : null;
+}
+function ordenarPorMesDia(rows,campo){
+  return [...rows].filter(r=>mesDiaFecha(r[campo])).sort((a,b)=>{
+    const da=mesDiaFecha(a[campo]), db=mesDiaFecha(b[campo]);
+    return da.mes-db.mes || da.dia-db.dia ||
+      String(a.primer_apellido||"").localeCompare(String(b.primer_apellido||""),"es",{sensitivity:"base"});
+  });
+}
+function aniosDesdeFecha(valor){
+  const s=String(valor||"").slice(0,10); if(!/^\\d{4}-\\d{2}-\\d{2}$/.test(s))return "—";
+  const [y,m,d]=s.split("-").map(Number), now=new Date();
+  let n=now.getFullYear()-y;
+  const cumple=new Date(now.getFullYear(),m-1,d);
+  if(now<cumple)n--;
+  return Math.max(0,n);
+}
+function renderReporteEspecial(rows,tipo){
+  const campo=tipo==="cumpleaneros"?"fecha_nacimiento":"fecha_ingreso";
+  const hoy=new Date(), mesActual=hoy.getMonth()+1;
+  const filtrados=ordenarPorMesDia(rows,campo).filter(r=>mesDiaFecha(r[campo])?.mes===mesActual);
+  const titulo=tipo==="cumpleaneros"?"🎂 Cumpleañeros del mes":"🎉 Aniversarios de afiliación del mes";
+  const extra=tipo==="cumpleaneros"
+    ? `<th>Edad</th>`
+    : `<th>Años de afiliación</th>`;
+  const body=filtrados.map(a=>{
+    const fecha=a[campo];
+    const md=mesDiaFecha(fecha);
+    const nombre=`${a.primer_nombre||""} ${a.segundo_nombre||""} ${a.primer_apellido||""} ${a.segundo_apellido||""}`.replace(/\\s+/g," ").trim();
+    const extraVal=tipo==="cumpleaneros"?edadActualRow(a):aniosDesdeFecha(fecha);
+    return `<tr><td>${md?String(md.dia).padStart(2,"0")+"/"+String(md.mes).padStart(2,"0"):"—"}</td><td>${esc(nombre)}</td><td>${esc(a.nacionalidad||"")}-${esc(a.cedula||"—")}</td><td>${esc(a.seccionales?.nombre||"—")}</td><td>${esc(a.cargos?.nombre||"—")}</td>${extra.replace("Años de afiliación",String(extraVal))}</tr>`;
+  }).join("");
+  const extraHead=tipo==="cumpleaneros"?"<th>Edad</th>":"<th>Años de afiliación</th>";
+  const fixedBody=filtrados.map(a=>{
+    const fecha=a[campo], md=mesDiaFecha(fecha);
+    const nombre=`${a.primer_nombre||""} ${a.segundo_nombre||""} ${a.primer_apellido||""} ${a.segundo_apellido||""}`.replace(/\s+/g," ").trim();
+    const extraVal=tipo==="cumpleaneros"?edadActualRow(a):aniosDesdeFecha(fecha);
+    return `<tr><td>${md?String(md.dia).padStart(2,"0")+"/"+String(md.mes).padStart(2,"0"):"—"}</td><td>${esc(nombre)}</td><td>${esc(a.nacionalidad||"")}-${esc(a.cedula||"—")}</td><td>${esc(a.seccionales?.nombre||"—")}</td><td>${esc(a.cargos?.nombre||"—")}</td><td>${esc(extraVal)}</td></tr>`;
+  }).join("");
+  return `<div class="report-special"><div class="report-head"><strong>${titulo}</strong><span>${filtrados.length} registro(s)</span></div>${filtrados.length?`<table><thead><tr><th>Día</th><th>Afiliado</th><th>Cédula</th><th>Seccional</th><th>Cargo</th>${extraHead}</tr></thead><tbody>${fixedBody}</tbody></table>`:`<div class="empty">No hay ${tipo==="cumpleaneros"?"cumpleañeros":"aniversarios de afiliación"} en el mes actual con los filtros seleccionados.</div>`}</div>`;
+}
+
 function renderReporteEstadistico(rows,tipo){
   const st=reportStats(rows), c=st.card;
   // El Dashboard muestra todos los resúmenes estadísticos, pero nunca el listado individual.
@@ -521,12 +567,15 @@ async function generarReporte(){
   try{for(let offset=0;;offset+=1000){const p=new URLSearchParams(q);p.set("limit","1000");p.set("offset",String(offset));const {data}=await api("/rest/v1/afiliados?"+p.toString());const rows=data||[];all.push(...rows);if(rows.length<1000)break;}}
   catch(e){box.innerHTML=`<div class="msg">No fue posible generar el reporte: ${esc(e.message)}</div>`;return;}
   const rows=sortCedula(all.map(r=>({...r,edad:edadActualRow(r)}))),tipo=$("rTipo").value;
-  const names={general:"Resumen general",seccional:"Reporte por seccional",cargo:"Reporte por cargo",estatus:"Reporte por estatus",cfs:"Reporte por CFS",sexo:"Reporte por sexo",edad:"Reporte por edad",dashboard:"Dashboard (resumen)"};
+  const names={general:"Resumen general",seccional:"Reporte por seccional",cargo:"Reporte por cargo",estatus:"Reporte por estatus",cfs:"Reporte por CFS",sexo:"Reporte por sexo",edad:"Reporte por edad",dashboard:"Dashboard (resumen)",cumpleaneros:"Cumpleañeros del mes",aniversarios:"Aniversarios de afiliación del mes"};
   $("reporteInfo").textContent=`${rows.length} registros`;
-  $("reporteResumen").innerHTML=renderReporteEstadistico(rows,tipo);
+  $("reporteResumen").innerHTML=(tipo==="cumpleaneros"||tipo==="aniversarios")?renderReporteEspecial(rows,tipo):renderReporteEstadistico(rows,tipo);
   const head=`<div class="report-head"><strong>${names[tipo]||"Reporte"}</strong><span>${rows.length} registros</span></div>`;
   if(tipo==="dashboard"){
     box.innerHTML=head+`<div class="empty">El Dashboard muestra únicamente el resumen general. Seleccione otro tipo de reporte para consultar el listado detallado.</div>`;return;
+  }
+  if(tipo==="cumpleaneros"||tipo==="aniversarios"){
+    box.innerHTML=`<div class="empty">La lista se muestra en el resumen superior.</div>`;return;
   }
   if(!rows.length){box.innerHTML=head+`<div class="empty">No hay registros con los filtros seleccionados.</div>`;return;}
   box.innerHTML=head+`<table><thead><tr><th>Cédula</th><th>Apellidos</th><th>Nombres</th><th>Sexo</th><th>Edad</th><th>F. nacimiento</th><th>F. ingreso</th><th>Seccional</th><th>Cargo</th><th>Estatus</th><th>CFS</th><th>Ciudad</th></tr></thead><tbody>${rows.map(a=>`<tr><td>${esc(a.cedula)}</td><td>${esc(`${a.primer_apellido||""} ${a.segundo_apellido||""}`.trim())}</td><td>${esc(`${a.primer_nombre||""} ${a.segundo_nombre||""}`.trim())}</td><td>${esc(a.sexo||"—")}</td><td>${esc(a.edad??"—")}</td><td>${formatDate(a.fecha_nacimiento)}</td><td>${formatDate(a.fecha_ingreso)}</td><td>${esc(a.seccionales?.nombre||"—")}</td><td>${esc(a.cargos?.nombre||"—")}</td><td>${esc(a.estatus?.nombre||"—")}</td><td>${esc(a.cfs?.nombre||"—")}</td><td>${esc(a.ciudad||"—")}</td></tr>`).join("")}</tbody></table>`;
@@ -576,7 +625,7 @@ async function reclamosAdmin(m){
 async function cargarReclamosAdmin(){
   const box=$("reclamosTabla"); if(!box)return; box.innerHTML='<div class="loading">Consultando casos…</div>';
   const q=new URLSearchParams();
-  q.set("select","id,afiliado_id,tipo,categoria,asunto,descripcion,fecha_hecho,cfs_id,ciudad,sugerencia,estado,respuesta,atendido_por,created_at,updated_at,afiliados(id,cedula,nacionalidad,primer_apellido,segundo_apellido,primer_nombre,segundo_nombre,seccional_id,seccionales(id,nombre)),cfs(id,nombre,codigo)");
+  q.set("select","id,afiliado_id,tipo,categoria,asunto,descripcion,fecha_hecho,cfs_id,ciudad,sugerencia,estado,respuesta,atendido_por,created_at,updated_at,afiliados!inner(id,cedula,nacionalidad,primer_apellido,segundo_apellido,primer_nombre,segundo_nombre,seccional_id,seccionales(id,nombre)),cfs(id,nombre,codigo)");
   q.set("order","created_at.desc"); q.set("limit","1000");
   const sec=$("qReclamoSeccional")?.value, tipo=$("qReclamoTipo")?.value, cat=$("qReclamoCategoria")?.value, est=$("qReclamoEstado")?.value;
   if(sec)q.set("afiliados.seccional_id",`eq.${sec}`);
@@ -1100,7 +1149,7 @@ async function cargarDirigenciaTabla(){
 
 function editorDirigencia(row){
   const box=$("dirigenciaEditor"); if(!box)return; box.classList.remove("hidden");
-  const isNew=!row, ocupado=!!row?.afiliado_id;
+  const isNew=!row, ocupado=!!row?.afiliado_id; window._dirEditingRow=row||null; window._dirAfiliadoEncontrado=row?.afiliados||null;
   const inicioActual=row?.fecha_inicio_gestion?String(row.fecha_inicio_gestion).slice(0,10):"";
   box.innerHTML=`<div class="section-head"><div>${title(isNew?"Nuevo cargo sindical":"Gestionar cargo sindical",isNew?"Crea una posición; si no se asigna afiliado quedará VACANTE.":"Asigna, actualiza o libera el dirigente vinculado a este cargo.")}</div><button id="cerrarDirEditor" class="secondary">Cerrar</button></div>
   <div class="edit-grid">
@@ -1131,7 +1180,7 @@ async function guardarDirigencia(row){
     const organ=$("dEditOrgan").value, sec=$("dEditSec").value||null, cargo=$("dEditCargo").value.trim(), ced=$("dEditCedula").value.trim(), inicio=$("dEditInicio").value||null;
     if(!cargo)throw new Error("Indique el cargo."); if(organ==="SECCIONAL"&&!sec)throw new Error("Seleccione la seccional.");
     let afiliado_id=null;
-    if(ced){ await buscarAfiliadoDir(); afiliado_id=window._dirAfiliadoEncontrado?.id||null; if(!afiliado_id)throw new Error("Debe indicar una cédula de afiliado válida."); if(!inicio)throw new Error("Indique la fecha de inicio de la gestión."); }
+    if(ced){ await buscarAfiliadoDir(); afiliado_id=window._dirAfiliadoEncontrado?.id||null; if(!afiliado_id)throw new Error("El afiliado no está habilitado para esta asignación."); await validarAfiliadoDirigente(window._dirAfiliadoEncontrado,organ,sec,row); if(!inicio)throw new Error("Indique la fecha de inicio de la gestión."); }
     const body={organ,seccional_id:organ==="SECCIONAL"?Number(sec):null,cargo,afiliado_id,fecha_inicio_gestion:afiliado_id?(inicio||(row?.fecha_inicio_gestion||null)):(row?.fecha_inicio_gestion||null),fecha_fin_gestion:afiliado_id?null:(row?.afiliado_id?new Date().toISOString().slice(0,10):(row?.fecha_fin_gestion||null)),activo:true,updated_at:new Date().toISOString()};
     if(row){
       if(!afiliado_id && row.afiliado_id) body.fecha_fin_gestion=new Date().toISOString().slice(0,10);
@@ -1211,6 +1260,30 @@ async function generarConstanciaDirigente(row){
   }catch(e){alert("No se pudo generar la constancia de dirigente: "+(e.message||e));}
 }
 
+
+async function validarAfiliadoDirigente(afiliado, organ, sec, row){
+  if(!afiliado?.id) throw new Error("Debe indicar un afiliado válido.");
+  if(organ==="SECCIONAL" && String(afiliado.seccional_id)!==String(sec)){
+    const nombreTrabajo=catalogos.seccionales.find(x=>String(x.id)===String(sec))?.nombre||"la seccional seleccionada";
+    const nombreAfiliado=afiliado.seccionales?.nombre||"otra seccional";
+    throw new Error(`El afiliado pertenece a ${nombreAfiliado} y no puede ser asignado a ${nombreTrabajo}. En una directiva seccional solo se permiten afiliados de esa misma seccional.`);
+  }
+  const q=new URLSearchParams({
+    select:"id,organ,seccional_id,cargo,activo",
+    afiliado_id:`eq.${afiliado.id}`,
+    activo:"eq.true",
+    limit:"100"
+  });
+  const {data}=await api("/rest/v1/dirigencia_sindical?"+q.toString());
+  const conflictos=(Array.isArray(data)?data:[]).filter(x=>String(x.id)!==String(row?.id||""));
+  if(conflictos.length){
+    const c=conflictos[0];
+    const donde=c.organ==="SECCIONAL" ? `la Directiva Seccional${c.seccional_id?` (seccional ${catalogos.seccionales.find(s=>String(s.id)===String(c.seccional_id))?.nombre||c.seccional_id})`:""}` : c.organ==="CEN" ? "el Comité Ejecutivo Nacional" : "el Tribunal Disciplinario";
+    throw new Error(`El afiliado ya tiene un cargo dirigente activo en ${donde}: ${c.cargo||"cargo sin nombre"}. Un afiliado no puede ocupar dos cargos dirigentes activos.`);
+  }
+  return true;
+}
+
 async function buscarAfiliadoDir(){
   const ced=$("dEditCedula")?.value.trim(); const out=$("dAfiliadoEncontrado"); if(!ced){out.textContent="Deje vacío para mantener el cargo VACANTE."; return;}
   out.textContent="Buscando afiliado…";
@@ -1219,8 +1292,15 @@ async function buscarAfiliadoDir(){
     const {data}=await api("/rest/v1/afiliados?"+q.toString()); const a=Array.isArray(data)?data[0]:null;
     if(!a){out.textContent="No se encontró un afiliado con esa cédula.";return;}
     if(!a.activo){out.textContent="El afiliado existe, pero su registro está inactivo. No se puede asignar este cargo.";return;}
-    window._dirAfiliadoEncontrado=a;
-    out.innerHTML=`<b>${esc(nombreAfiliadoDir(a))}</b> — C.I. ${esc(a.cedula)} — Seccional: ${esc(a.seccionales?.nombre||"—")}`;
+    const organ=$("dEditOrgan")?.value, sec=$("dEditSec")?.value||"";
+    try{
+      await validarAfiliadoDirigente(a,organ,sec,window._dirEditingRow||null);
+      window._dirAfiliadoEncontrado=a;
+      out.innerHTML=`<b>${esc(nombreAfiliadoDir(a))}</b> — C.I. ${esc(a.cedula)} — Seccional: ${esc(a.seccionales?.nombre||"—")}<br><span class="muted">Afiliado habilitado para esta asignación.</span>`;
+    }catch(err){
+      window._dirAfiliadoEncontrado=null;
+      out.innerHTML=`<span style="color:#b42318">${esc(err.message||err)}</span>`;
+    }
   }catch(e){out.textContent="No se pudo buscar: "+(e.message||e);}
 }
 
