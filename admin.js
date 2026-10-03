@@ -436,6 +436,7 @@ async function reportes(m){
       <label>Edad mínima<input id="rMin" type="number" min="0" max="120"></label>
       <label>Edad máxima<input id="rMax" type="number" min="0" max="120"></label>
       <label>Tipo de reporte<select id="rTipo"><option value="general">Resumen general</option><option value="seccional">Por seccional</option><option value="cargo">Por cargo</option><option value="estatus">Por estatus</option><option value="sexo">Por sexo</option><option value="edad">Por edad</option><option value="cfs">Por CFS</option><option value="cumpleaneros">🎂 Cumpleañeros</option><option value="aniversarios">🎉 Aniversarios</option><option value="dashboard">Dashboard (resumen)</option></select></label>
+      <label id="rPeriodoWrap" style="display:none">Período<select id="rPeriodo"><option value="dia">Día</option><option value="semana">Semana</option><option value="mes" selected>Mes</option><option value="anio">Todo el año</option></select></label>
     </div>
     <div class="filter-actions"><button id="generarReporte">Aplicar filtros</button><button id="limpiarReporte" class="secondary">Limpiar selección</button><button id="imprimirReporte" class="secondary">Imprimir</button><button id="pdfReporte" class="secondary">Guardar PDF</button><span id="reporteInfo" class="muted"></span></div>
     <div id="reporteResumen"></div>
@@ -452,6 +453,9 @@ async function reportes(m){
     cfsForReport(perfil.seccional_id);
   }
   $("rSeccional").addEventListener("change",e=>cfsForReport(e.target.value));
+  $("rTipo").addEventListener("change",()=>{actualizarPeriodoEspecial();});
+  $("rPeriodo").addEventListener("change",()=>{if(["cumpleaneros","aniversarios"].includes($("rTipo").value))generarReporte();});
+  actualizarPeriodoEspecial();
   $("generarReporte").onclick=generarReporte;
   $("limpiarReporte").onclick=limpiarReporteFiltros;
   $("imprimirReporte").onclick=()=>window.print();
@@ -499,29 +503,43 @@ function aniosDesdeFecha(valor){
   if(now<cumple)n--;
   return Math.max(0,n);
 }
+function rangoEspecial(periodo){
+  const hoy=new Date(); hoy.setHours(0,0,0,0);
+  const diaSemana=(hoy.getDay()+6)%7;
+  if(periodo==="dia") return {inicio:new Date(hoy),fin:new Date(hoy)};
+  if(periodo==="semana"){
+    const inicio=new Date(hoy); inicio.setDate(hoy.getDate()-diaSemana);
+    const fin=new Date(inicio); fin.setDate(inicio.getDate()+6);
+    return {inicio,fin};
+  }
+  if(periodo==="anio") return {inicio:new Date(hoy.getFullYear(),0,1),fin:new Date(hoy.getFullYear(),11,31)};
+  return {inicio:new Date(hoy.getFullYear(),hoy.getMonth(),1),fin:new Date(hoy.getFullYear(),hoy.getMonth()+1,0)};
+}
+function dentroRangoMesDia(valor,rango){
+  const md=mesDiaFecha(valor); if(!md)return false;
+  let fecha=new Date(rango.inicio.getFullYear(),md.mes-1,md.dia); fecha.setHours(0,0,0,0);
+  if(md.mes===2 && md.dia===29 && fecha.getMonth()!==1) fecha=new Date(rango.inicio.getFullYear(),1,28);
+  return fecha>=rango.inicio && fecha<=rango.fin;
+}
+function etiquetaPeriodoEspecial(periodo){return {dia:"de hoy",semana:"de esta semana",mes:"del mes",anio:"de todo el año"}[periodo]||"del mes";}
+function actualizarPeriodoEspecial(){
+  const tipo=$("rTipo")?.value, wrap=$("rPeriodoWrap"); if(!wrap)return;
+  wrap.style.display=(tipo==="cumpleaneros"||tipo==="aniversarios")?"":"none";
+}
 function renderReporteEspecial(rows,tipo){
   const campo=tipo==="cumpleaneros"?"fecha_nacimiento":"fecha_ingreso";
-  const hoy=new Date(), mesActual=hoy.getMonth()+1;
-  const filtrados=ordenarPorMesDia(rows,campo).filter(r=>mesDiaFecha(r[campo])?.mes===mesActual);
-  const titulo=tipo==="cumpleaneros"?"🎂 Cumpleañeros del mes":"🎉 Aniversarios de afiliación del mes";
-  const extra=tipo==="cumpleaneros"
-    ? `<th>Edad</th>`
-    : `<th>Años de afiliación</th>`;
-  const body=filtrados.map(a=>{
-    const fecha=a[campo];
-    const md=mesDiaFecha(fecha);
-    const nombre=`${a.primer_nombre||""} ${a.segundo_nombre||""} ${a.primer_apellido||""} ${a.segundo_apellido||""}`.replace(/\\s+/g," ").trim();
-    const extraVal=tipo==="cumpleaneros"?edadActualRow(a):aniosDesdeFecha(fecha);
-    return `<tr><td>${md?String(md.dia).padStart(2,"0")+"/"+String(md.mes).padStart(2,"0"):"—"}</td><td>${esc(nombre)}</td><td>${esc(a.nacionalidad||"")}-${esc(a.cedula||"—")}</td><td>${esc(a.seccionales?.nombre||"—")}</td><td>${esc(a.cargos?.nombre||"—")}</td>${extra.replace("Años de afiliación",String(extraVal))}</tr>`;
-  }).join("");
+  const periodo=$("rPeriodo")?.value||"mes", rango=rangoEspecial(periodo);
+  const filtrados=ordenarPorMesDia(rows,campo).filter(r=>dentroRangoMesDia(r[campo],rango));
+  const titulo=tipo==="cumpleaneros"?`🎂 Cumpleañeros ${etiquetaPeriodoEspecial(periodo)}`:`🎉 Aniversarios de afiliación ${etiquetaPeriodoEspecial(periodo)}`;
   const extraHead=tipo==="cumpleaneros"?"<th>Edad</th>":"<th>Años de afiliación</th>";
   const fixedBody=filtrados.map(a=>{
-    const fecha=a[campo], md=mesDiaFecha(fecha);
+    const md=mesDiaFecha(a[campo]);
     const nombre=`${a.primer_nombre||""} ${a.segundo_nombre||""} ${a.primer_apellido||""} ${a.segundo_apellido||""}`.replace(/\s+/g," ").trim();
-    const extraVal=tipo==="cumpleaneros"?edadActualRow(a):aniosDesdeFecha(fecha);
+    const extraVal=tipo==="cumpleaneros"?edadActualRow(a):aniosDesdeFecha(a[campo]);
     return `<tr><td>${md?String(md.dia).padStart(2,"0")+"/"+String(md.mes).padStart(2,"0"):"—"}</td><td>${esc(nombre)}</td><td>${esc(a.nacionalidad||"")}-${esc(a.cedula||"—")}</td><td>${esc(a.seccionales?.nombre||"—")}</td><td>${esc(a.cargos?.nombre||"—")}</td><td>${esc(extraVal)}</td></tr>`;
   }).join("");
-  return `<div class="report-special"><div class="report-head"><strong>${titulo}</strong><span>${filtrados.length} registro(s)</span></div>${filtrados.length?`<table><thead><tr><th>Día</th><th>Afiliado</th><th>Cédula</th><th>Seccional</th><th>Cargo</th>${extraHead}</tr></thead><tbody>${fixedBody}</tbody></table>`:`<div class="empty">No hay ${tipo==="cumpleaneros"?"cumpleañeros":"aniversarios de afiliación"} en el mes actual con los filtros seleccionados.</div>`}</div>`;
+  const vacio=tipo==="cumpleaneros"?"cumpleañeros":"aniversarios de afiliación";
+  return `<div class="report-special"><div class="report-head"><strong>${titulo}</strong><span>${filtrados.length} registro(s)</span></div>${filtrados.length?`<table><thead><tr><th>Día</th><th>Afiliado</th><th>Cédula</th><th>Seccional</th><th>Cargo</th>${extraHead}</tr></thead><tbody>${fixedBody}</tbody></table>`:`<div class="empty">No hay ${vacio} ${etiquetaPeriodoEspecial(periodo)} con los filtros seleccionados.</div>`}</div>`;
 }
 
 function renderReporteEstadistico(rows,tipo){
