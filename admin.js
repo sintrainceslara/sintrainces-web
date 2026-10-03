@@ -496,12 +496,14 @@ function ordenarPorMesDia(rows,campo){
   });
 }
 function aniosDesdeFecha(valor){
-  const s=String(valor||"").slice(0,10); if(!/^\d{4}-\d{2}-\d{2}$/.test(s))return "—";
-  const [y,m,d]=s.split("-").map(Number), now=new Date();
-  let n=now.getFullYear()-y;
-  const cumple=new Date(now.getFullYear(),m-1,d);
-  if(now<cumple)n--;
-  return Math.max(0,n);
+  // En Aniversarios, la antigüedad corresponde al aniversario del año que se está mostrando:
+  // año actual menos año de la fecha de afiliación. No se resta un año por estar antes del día exacto.
+  const s=String(valor||"").slice(0,10);
+  if(!/^\d{4}-\d{2}-\d{2}$/.test(s))return "—";
+  const y=Number(s.slice(0,4));
+  const actual=new Date().getFullYear();
+  if(!Number.isFinite(y)||y>actual)return "—";
+  return Math.max(0,actual-y);
 }
 function rangoEspecial(periodo){
   const hoy=new Date(); hoy.setHours(0,0,0,0);
