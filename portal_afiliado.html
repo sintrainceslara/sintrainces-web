@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Portal del Afiliado — SINTRAINCES v1.52.12</title>
+<title>Portal del Afiliado — SINTRAINCES v1.52.13 DIAGNÓSTICO</title>
 <link rel="stylesheet" href="admin.css">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.2/dist/jspdf.umd.min.js"></script>
@@ -46,6 +46,11 @@ body{background:#f4f7fb}.portal{max-width:1080px;margin:24px auto;padding:16px}.
             <label>Fecha de nacimiento<input id="lDob" type="text" inputmode="numeric" maxlength="10" placeholder="dd/mm/aaaa" autocomplete="bday" required></label>
             <div class="actions"><button>Ingresar</button></div>
             <div id="loginMsg" class="msg"></div>
+            <div style="margin-top:12px;padding:12px;border:1px dashed #c7cdd8;border-radius:10px;background:#f8fafc">
+              <div style="font-size:12px;font-weight:700;color:#344054;margin-bottom:6px">Prueba técnica temporal</div>
+              <button type="button" id="diagnosticoVinculacionBtn" style="font-size:12px">Probar vinculación del afiliado</button>
+              <div id="diagnosticoVinculacionMsg" class="msg" style="margin-top:8px"></div>
+            </div>
             <a id="forgotPasswordLink" class="auth-link" href="#">¿Olvidaste tu contraseña?</a>
           </form>
           <div id="recoveryBox" class="recovery-box hidden">
@@ -244,9 +249,16 @@ function fechaVEaISO(v){
 }
 ['rDob','lDob'].forEach(id=>$(id).addEventListener('input',e=>mascaraFechaVE(e.target)));
 async function vincular(ced,dob){
-  const {data,error}=await sb.rpc('vincular_usuario_afiliado',{p_cedula:ced.trim(),p_fecha_nacimiento:dob});
-  if(error)throw error;
-  if(!data?.length)throw new Error('No se pudo vincular el usuario con el registro sindical.');
+  const cedula=String(ced||'').trim();
+  const fechaNacimiento=String(dob||'').trim();
+  const {data,error}=await sb.rpc('vincular_usuario_afiliado',{p_cedula:cedula,p_fecha_nacimiento:fechaNacimiento});
+  if(error){
+    console.error('SINTRAINCES diagnóstico vincular_usuario_afiliado', {message:error.message, code:error.code, details:error.details, hint:error.hint});
+    const detalle=[error.message,error.code?`Código: ${error.code}`:'',error.details?`Detalle: ${error.details}`:'',error.hint?`Ayuda: ${error.hint}`:''].filter(Boolean).join(' | ');
+    throw new Error(`Fallo en vincular_usuario_afiliado: ${detalle}`);
+  }
+  if(!data?.length)throw new Error('vincular_usuario_afiliado no devolvió ningún perfil.');
+  console.info('SINTRAINCES diagnóstico vincular_usuario_afiliado OK', data[0]);
   return data[0];
 }
 async function cargarPerfil(perfilVinculado=null){
@@ -359,6 +371,20 @@ $('loginForm').onsubmit=async e=>{
   }catch(e){setMsg('loginMsg',e.message||String(e))}
 };
 $('showLoginLink').onclick=e=>{e.preventDefault();$('loginCard').classList.remove('hidden');$('loginMsg').textContent='';$('authMsg').textContent='';$('lEmail').focus();$('loginCard').scrollIntoView({behavior:'smooth',block:'start'});};
+$('diagnosticoVinculacionBtn').onclick=async()=>{
+  setMsg('diagnosticoVinculacionMsg','Ejecutando prueba…');
+  try{
+    const {data:{session}}=await sb.auth.getSession();
+    if(!session?.user)throw new Error('No existe una sesión autenticada en este momento. Primero inicia sesión con la cuenta de prueba.');
+    const ced=$('lCed').value.trim();
+    const dob=fechaVEaISO($('lDob').value);
+    const perfilPrueba=await vincular(ced,dob);
+    setMsg('diagnosticoVinculacionMsg',`VINCULACIÓN EXITOSA. Perfil creado/encontrado: ${perfilPrueba.id} | afiliado_id: ${perfilPrueba.afiliado_id} | rol: ${perfilPrueba.rol}`,true);
+  }catch(e){
+    console.error('SINTRAINCES diagnóstico completo',e);
+    setMsg('diagnosticoVinculacionMsg',e.message||String(e));
+  }
+};
 $('forgotPasswordLink').onclick=e=>{e.preventDefault();$('recoveryBox').classList.toggle('hidden');$('recoveryEmail').value=$('lEmail').value.trim();if(!$('recoveryBox').classList.contains('hidden'))$('recoveryEmail').focus()};
 $('cancelRecoveryBtn').onclick=()=>{$('recoveryBox').classList.add('hidden');$('recoveryMsg').textContent=''};
 $('recoveryForm').onsubmit=async e=>{e.preventDefault();setMsg('recoveryMsg','Enviando enlace…');try{const email=$('recoveryEmail').value.trim();if(!email)throw new Error('Indique su correo electrónico.');const redirectTo=new URL('portal_afiliado.html', document.baseURI).href;const {error}=await sb.auth.resetPasswordForEmail(email,{redirectTo});if(error)throw error;setMsg('recoveryMsg','Si existe una cuenta con ese correo, recibirás un enlace para recuperar tu contraseña. Revisa también la carpeta de correo no deseado.',true)}catch(e){setMsg('recoveryMsg',e.message||String(e))}};
