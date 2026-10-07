@@ -21,12 +21,12 @@ body{background:#f4f7fb}.portal{max-width:1080px;margin:24px auto;padding:16px}.
       <h1>Portal del Afiliado</h1>
       <p class="muted">Consulta tus datos, solicita correcciones y genera tu constancia de afiliación.</p>
       <div id="authMsg" class="msg"></div>
-<div id="diagnosticoVinculacionPanel" style="margin-top:12px;padding:12px;border:1px solid #d9d9d9;border-radius:8px;background:#fafafa;">
-  <div style="font-weight:700;margin-bottom:6px;">Diagnóstico técnico de vinculación</div>
-  <div style="font-size:13px;margin-bottom:8px;">Si la cuenta está confirmada pero no tiene perfil SINTRAINCES, usa esta prueba.</div>
-  <button type="button" id="diagnosticoVinculacionBtn" class="secondary">Probar vinculación del afiliado</button>
-  <div id="diagnosticoVinculacionMsg" class="msg" style="white-space:pre-wrap;margin-top:8px;"></div>
-</div>
+      <div id="diagnosticoVinculacionBox" class="card" style="margin-top:14px;border:2px solid #d97706;background:#fffaf0;box-shadow:none">
+        <h2 style="color:#92400e">Diagnóstico de vinculación</h2>
+        <p class="muted">Esta opción es temporal y sirve para identificar por qué el perfil SINTRAINCES no se está creando.</p>
+        <div class="actions"><button type="button" id="diagnosticoVinculacionBtn" class="secondary">Probar vinculación del afiliado</button></div>
+        <div id="diagnosticoVinculacionMsg" class="msg" style="white-space:pre-wrap"></div>
+      </div>
       <div class="grid" style="margin-top:16px">
         <section class="card" style="box-shadow:none;border:1px solid #e5e9ef">
           <h2>Crear acceso</h2>
@@ -247,32 +247,24 @@ function fechaVEaISO(v){
 }
 ['rDob','lDob'].forEach(id=>$(id).addEventListener('input',e=>mascaraFechaVE(e.target)));
 async function diagnosticarVinculacion(){
-  const out=$('diagnosticoVinculacionMsg');
-  if(!out)return;
-  out.style.color='#b42318';
-  out.textContent='Ejecutando prueba de vinculación…';
+  const out=$("diagnosticoVinculacionMsg");
+  out.textContent="Ejecutando prueba…";
   try{
     const {data:{session}}=await sb.auth.getSession();
-    if(!session)throw new Error('No hay una sesión activa. Inicia sesión primero.');
-    const ced=String($('lCed')?.value||'').trim();
-    if(!ced)throw new Error('Indica la cédula del afiliado en el formulario de acceso.');
-    const dob=fechaVEaISO($('lDob')?.value||'');
-    const {data,error}=await sb.rpc('vincular_usuario_afiliado',{p_cedula:ced,p_fecha_nacimiento:dob});
+    if(!session) throw new Error("No hay una sesión activa. Primero pulsa Ingresar con el usuario de prueba.");
+    const ced=String($("lCed")?.value||$("rCed")?.value||"").trim();
+    const fechaValor=String($("lDob")?.value||$("rDob")?.value||"").trim();
+    if(!ced) throw new Error("Indica la cédula del afiliado en el formulario de ingreso.");
+    const dob=fechaVEaISO(fechaValor);
+    const {data,error}=await sb.rpc("vincular_usuario_afiliado",{p_cedula:ced,p_fecha_nacimiento:dob});
     if(error){
-      const detalles=[
-        error.message&&('Mensaje: '+error.message),
-        error.code&&('Código: '+error.code),
-        error.details&&('Detalle: '+error.details),
-        error.hint&&('Ayuda: '+error.hint)
-      ].filter(Boolean).join('\n');
-      throw new Error(detalles||JSON.stringify(error));
+      throw new Error([error.message&&("Mensaje: "+error.message),error.code&&("Código: "+error.code),error.details&&("Detalle: "+error.details),error.hint&&("Ayuda: "+error.hint)].filter(Boolean).join("\n")||JSON.stringify(error));
     }
-    if(!data?.length)throw new Error('La función respondió sin devolver un perfil.');
-    out.style.color='#027a48';
-    out.textContent='VINCULACIÓN EXITOSA.\n'+JSON.stringify(data[0],null,2);
+    out.style.color="#027a48";
+    out.textContent="VINCULACIÓN EXITOSA.\n"+JSON.stringify(data,null,2);
   }catch(e){
-    out.style.color='#b42318';
-    out.textContent='ERROR REAL DE VINCULACIÓN:\n'+(e?.message||String(e));
+    out.style.color="#b42318";
+    out.textContent="ERROR REAL DE VINCULACIÓN:\n"+(e.message||String(e));
   }
 }
 
@@ -342,6 +334,7 @@ async function cargarReclamos(){
   if(error){$('reclamos').innerHTML='<div class="muted">No se pudieron cargar tus reclamos y sugerencias.</div>';return;}
   $('reclamos').innerHTML='<h3 style="font-size:15px;margin-bottom:8px">Mis reclamos y sugerencias</h3>'+((data||[]).map(x=>`<div class="reclamo-row"><div class="reclamo-head"><b>${esc(x.asunto||etiquetaTipo(x.tipo))}</b><span class="reclamo-estado">${esc(etiquetaEstado(x.estado))}</span></div><div class="reclamo-meta">${esc(etiquetaTipo(x.tipo))} · ${esc(etiquetaCategoria(x.categoria))} · ${fechaHora(x.created_at)}${x.fecha_hecho?' · Hecho: '+fecha(x.fecha_hecho):''}</div><div style="margin-top:8px;font-size:13px">${esc(x.descripcion||'')}</div>${x.sugerencia?`<div class="reclamo-sugerencia"><b>Sugerencia del afiliado:</b><br>${esc(x.sugerencia)}</div>`:''}${x.respuesta?`<div class="reclamo-sugerencia" style="border-left-color:#667085"><b>Respuesta de SINTRAINCES:</b><br>${esc(x.respuesta)}</div>`:''}</div>`).join('')||'<div class="muted">Aún no tienes reclamos o sugerencias registrados.</div>');
 }
+$("diagnosticoVinculacionBtn").onclick=diagnosticarVinculacion;
 $('regForm').onsubmit=async e=>{e.preventDefault();setMsg('regMsg','Creando acceso…');if($('rPass').value!==$('rPass2').value)return setMsg('regMsg','Las contraseñas no coinciden.');let dobISO;try{dobISO=fechaVEaISO($('rDob').value)}catch(err){return setMsg('regMsg',err.message||String(err))}try{const {data,error}=await sb.auth.signUp({email:$('rEmail').value.trim(),password:$('rPass').value,options:{emailRedirectTo:new URL('portal_afiliado.html', document.baseURI).href}});if(error)throw error;if(data.session){await vincular($('rCed').value,dobISO);await iniciarPortal();}else{setMsg('regMsg','Cuenta creada. Revisa tu correo para confirmar la cuenta y luego inicia sesión.',true)}}catch(e){setMsg('regMsg',e.message||String(e))}};
 $('loginForm').onsubmit=async e=>{e.preventDefault();setMsg('loginMsg','Ingresando…');let dobISO;try{dobISO=fechaVEaISO($('lDob').value)}catch(err){return setMsg('loginMsg',err.message||String(err))}try{const {data,error}=await sb.auth.signInWithPassword({email:$('lEmail').value.trim(),password:$('lPass').value});if(error)throw error;await vincular($('lCed').value,dobISO);await iniciarPortal()}catch(e){setMsg('loginMsg',e.message||String(e))}};
 $('forgotPasswordLink').onclick=e=>{e.preventDefault();$('recoveryBox').classList.toggle('hidden');$('recoveryEmail').value=$('lEmail').value.trim();if(!$('recoveryBox').classList.contains('hidden'))$('recoveryEmail').focus()};
@@ -467,8 +460,6 @@ async function crearPdf(row){
   pdf.save(`Constancia_SINTRAINCES_${afiliado.cedula}.pdf`);
 }
 let recuperacionActiva=false;
-$('diagnosticoVinculacionBtn').onclick=diagnosticarVinculacion;
-
 sb.auth.onAuthStateChange((event,session)=>{
   if(event==='PASSWORD_RECOVERY'){
     recuperacionActiva=true;
