@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Portal del Afiliado — SINTRAINCES v1.52.13 Diagnóstico</title>
+<title>Portal del Afiliado — SINTRAINCES</title>
 <link rel="stylesheet" href="admin.css">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.2/dist/jspdf.umd.min.js"></script>
@@ -21,6 +21,12 @@ body{background:#f4f7fb}.portal{max-width:1080px;margin:24px auto;padding:16px}.
       <h1>Portal del Afiliado</h1>
       <p class="muted">Consulta tus datos, solicita correcciones y genera tu constancia de afiliación.</p>
       <div id="authMsg" class="msg"></div>
+<div id="diagnosticoVinculacionPanel" style="margin-top:12px;padding:12px;border:1px solid #d9d9d9;border-radius:8px;background:#fafafa;">
+  <div style="font-weight:700;margin-bottom:6px;">Diagnóstico técnico de vinculación</div>
+  <div style="font-size:13px;margin-bottom:8px;">Si la cuenta está confirmada pero no tiene perfil SINTRAINCES, usa esta prueba.</div>
+  <button type="button" id="diagnosticoVinculacionBtn" class="secondary">Probar vinculación del afiliado</button>
+  <div id="diagnosticoVinculacionMsg" class="msg" style="white-space:pre-wrap;margin-top:8px;"></div>
+</div>
       <div class="grid" style="margin-top:16px">
         <section class="card" style="box-shadow:none;border:1px solid #e5e9ef">
           <h2>Crear acceso</h2>
@@ -44,10 +50,6 @@ body{background:#f4f7fb}.portal{max-width:1080px;margin:24px auto;padding:16px}.
             <div class="actions"><button>Ingresar</button></div>
             <div id="loginMsg" class="msg"></div>
             <a id="forgotPasswordLink" class="auth-link" href="#">¿Olvidaste tu contraseña?</a>
-            <div style="margin-top:16px;padding-top:12px;border-top:1px solid #e5e9ef">
-              <button type="button" id="diagnosticoVinculacionBtn" class="secondary">Probar vinculación del afiliado</button>
-              <div id="diagnosticoVinculacionMsg" class="msg"></div>
-            </div>
           </form>
           <div id="recoveryBox" class="recovery-box hidden">
             <h3>Recuperar contraseña</h3>
@@ -244,17 +246,46 @@ function fechaVEaISO(v){
   return iso;
 }
 ['rDob','lDob'].forEach(id=>$(id).addEventListener('input',e=>mascaraFechaVE(e.target)));
+async function diagnosticarVinculacion(){
+  const out=$('diagnosticoVinculacionMsg');
+  if(!out)return;
+  out.style.color='#b42318';
+  out.textContent='Ejecutando prueba de vinculación…';
+  try{
+    const {data:{session}}=await sb.auth.getSession();
+    if(!session)throw new Error('No hay una sesión activa. Inicia sesión primero.');
+    const ced=String($('lCed')?.value||'').trim();
+    if(!ced)throw new Error('Indica la cédula del afiliado en el formulario de acceso.');
+    const dob=fechaVEaISO($('lDob')?.value||'');
+    const {data,error}=await sb.rpc('vincular_usuario_afiliado',{p_cedula:ced,p_fecha_nacimiento:dob});
+    if(error){
+      const detalles=[
+        error.message&&('Mensaje: '+error.message),
+        error.code&&('Código: '+error.code),
+        error.details&&('Detalle: '+error.details),
+        error.hint&&('Ayuda: '+error.hint)
+      ].filter(Boolean).join('\n');
+      throw new Error(detalles||JSON.stringify(error));
+    }
+    if(!data?.length)throw new Error('La función respondió sin devolver un perfil.');
+    out.style.color='#027a48';
+    out.textContent='VINCULACIÓN EXITOSA.\n'+JSON.stringify(data[0],null,2);
+  }catch(e){
+    out.style.color='#b42318';
+    out.textContent='ERROR REAL DE VINCULACIÓN:\n'+(e?.message||String(e));
+  }
+}
+
 async function vincular(ced,dob){
   const {data,error}=await sb.rpc('vincular_usuario_afiliado',{p_cedula:ced.trim(),p_fecha_nacimiento:dob});
   if(error)throw error;
   if(!data?.length)throw new Error('No se pudo vincular el usuario con el registro sindical.');
   return data[0];
 }
-async function cargarPerfil(perfilVinculado=null){
-  let p;
-  if(perfilVinculado){ p=[perfilVinculado]; }
-  else { const {data,error}=await sb.rpc('mi_perfil_actual'); if(error)throw error; p=data; }
-  if(!p?.length || p[0].rol!=='afiliado') throw new Error('La cuenta no tiene un perfil SINTRAINCES activo.');
+async function cargarPerfil(){
+  const {data:p,error:pe}=await sb.rpc('mi_perfil_actual');
+  if(pe)throw pe;
+  if(!p?.length || p[0].rol!=='afiliado') throw new Error('La cuenta no está vinculada como afiliado.');
   perfil=p[0];
   const {data:a,error:ae}=await sb.from('afiliados').select('*').eq('id',perfil.afiliado_id).single();
   if(ae)throw ae;
@@ -318,7 +349,7 @@ $('cancelRecoveryBtn').onclick=()=>{$('recoveryBox').classList.add('hidden');$('
 $('recoveryForm').onsubmit=async e=>{e.preventDefault();setMsg('recoveryMsg','Enviando enlace…');try{const email=$('recoveryEmail').value.trim();if(!email)throw new Error('Indique su correo electrónico.');const redirectTo=new URL('portal_afiliado.html', document.baseURI).href;const {error}=await sb.auth.resetPasswordForEmail(email,{redirectTo});if(error)throw error;setMsg('recoveryMsg','Si existe una cuenta con ese correo, recibirás un enlace para recuperar tu contraseña. Revisa también la carpeta de correo no deseado.',true)}catch(e){setMsg('recoveryMsg',e.message||String(e))}};
 $('passwordRecoveryForm').onsubmit=async e=>{e.preventDefault();setMsg('passwordRecoveryMsg','Actualizando contraseña…');const p1=$('newRecoveryPassword').value,p2=$('newRecoveryPassword2').value;if(p1!==p2)return setMsg('passwordRecoveryMsg','Las contraseñas no coinciden.');try{const {error}=await sb.auth.updateUser({password:p1});if(error)throw error;setMsg('passwordRecoveryMsg','Contraseña actualizada correctamente. Ya puedes ingresar con tu nueva contraseña.',true);setTimeout(async()=>{await sb.auth.signOut();location.href='index.html'},1200)}catch(e){setMsg('passwordRecoveryMsg',e.message||String(e))}};
 $('logoutBtn').onclick=async()=>{await sb.auth.signOut();location.href='index.html'};
-async function iniciarPortal(perfilVinculado=null){ $('authView').classList.add('hidden');$('appView').classList.remove('hidden');try{await cargarPerfil(perfilVinculado)}catch(e){$('appView').classList.add('hidden');$('authView').classList.remove('hidden');setMsg('authMsg',e.message||String(e))}}
+async function iniciarPortal(){ $('authView').classList.add('hidden');$('appView').classList.remove('hidden');try{await cargarPerfil()}catch(e){$('appView').classList.add('hidden');$('authView').classList.remove('hidden');setMsg('authMsg',e.message||String(e))}}
 $('reclamoForm').onsubmit=async e=>{e.preventDefault();setMsg('reclamoMsg','Enviando…');try{const payload={afiliado_id:afiliado.id,tipo:$('rTipo').value,categoria:$('rCategoria').value,asunto:$('rAsunto').value.trim(),descripcion:$('rDescripcion').value.trim(),fecha_hecho:$('rFechaHecho').value||null,cfs_id:afiliado.cfs_id||null,ciudad:afiliado.ciudad||null,sugerencia:$('rSugerencia').value.trim()};const {error}=await sb.from('reclamos_sugerencias').insert(payload);if(error)throw error;const cfsActual=$('rCfs').value, ciudadActual=$('rCiudad').value;$('reclamoForm').reset();$('rCfs').value=cfsActual;$('rCiudad').value=ciudadActual;setMsg('reclamoMsg','Reclamo o sugerencia registrado correctamente.',true);await cargarReclamos()}catch(e){setMsg('reclamoMsg',e.message||String(e))}};
 $('sCampo').onchange=()=>{const c=$('sCampo').value;$('sValorWrap').classList.toggle('hidden',c==='fecha_nacimiento'||c==='sexo'||c==='cfs_id');$('sFechaWrap').classList.toggle('hidden',c!=='fecha_nacimiento');$('sSexoWrap').classList.toggle('hidden',c!=='sexo');$('sCfsWrap').classList.toggle('hidden',c!=='cfs_id');$('sValor').required=!(c==='fecha_nacimiento'||c==='sexo'||c==='cfs_id');$('sFecha').required=c==='fecha_nacimiento';$('sSexo').required=c==='sexo';$('sCfs').required=c==='cfs_id';};
 $('solicitudForm').onsubmit=async e=>{e.preventDefault();setMsg('solMsg','Enviando…');try{const campo=$('sCampo').value;if(!campo)throw new Error('Seleccione el dato que desea corregir.');let valor=$('sValor').value.trim();if(campo==='fecha_nacimiento')valor=$('sFecha').value;if(campo==='sexo')valor=$('sSexo').value;if(campo==='cfs_id')valor=$('sCfs').value;if(!valor)throw new Error('Indique el nuevo valor solicitado.');const {error}=await sb.rpc('crear_solicitud_correccion',{p_campo:campo,p_valor_solicitado:valor,p_detalle:$('sDetalle').value.trim()});if(error)throw error;$('solicitudForm').reset();$('sCampo').dispatchEvent(new Event('change'));setMsg('solMsg','Solicitud de corrección enviada correctamente. Queda pendiente de revisión por SINTRAINCES.',true);await cargarSolicitudes()}catch(e){setMsg('solMsg',e.message||String(e))}};
@@ -329,31 +360,6 @@ async function generarDesdeRegistro(id){
   const {data,error}=await sb.from('constancias_afiliacion').select('id,codigo,emitida_en,vence_en').eq('id',id).single();
   if(error)throw error; await crearPdf(data);
 }
-async function diagnosticarVinculacion(){
-  const out=$('diagnosticoVinculacionMsg');
-  if(!out)return;
-  out.style.color='#b42318';
-  out.textContent='Ejecutando prueba…';
-  try{
-    const {data:{session}}=await sb.auth.getSession();
-    if(!session) throw new Error('No hay una sesión activa. Inicia sesión primero.');
-    const ced=String($('lCed')?.value||'').trim();
-    const dob=fechaVEaISO($('lDob')?.value||'');
-    if(!ced) throw new Error('Indica la cédula del afiliado.');
-    const {data,error}=await sb.rpc('vincular_usuario_afiliado',{p_cedula:ced,p_fecha_nacimiento:dob});
-    if(error){
-      const detalles=[error.message&&`Mensaje: ${error.message}`,error.code&&`Código: ${error.code}`,error.details&&`Detalle: ${error.details}`,error.hint&&`Ayuda: ${error.hint}`].filter(Boolean).join('\n');
-      throw new Error(detalles||JSON.stringify(error));
-    }
-    if(!data?.length) throw new Error('La función respondió sin devolver un perfil.');
-    out.style.color='#027a48';
-    out.textContent='VINCULACIÓN EXITOSA. Perfil creado/devuelto: '+JSON.stringify(data[0],null,2);
-  }catch(e){
-    out.style.whiteSpace='pre-wrap';
-    out.textContent='ERROR REAL DE VINCULACIÓN:\n'+(e.message||String(e));
-  }
-}
-$('diagnosticoVinculacionBtn').onclick=diagnosticarVinculacion;
 $('abrirReclamosBtn').onclick=()=>{ $('portalHome').classList.add('hidden'); $('reclamosModule').classList.remove('hidden'); window.scrollTo({top:0,behavior:'smooth'}); };
 $('volverPortalBtn').onclick=()=>{ $('reclamosModule').classList.add('hidden'); $('portalHome').classList.remove('hidden'); window.scrollTo({top:0,behavior:'smooth'}); };
 $('constanciaBtn').onclick=async()=>{setMsg('constanciaMsg','Emitiendo constancia…');try{const {data,error}=await sb.rpc('crear_constancia_afiliacion',{p_afiliado_id:afiliado.id});if(error)throw error;const row=Array.isArray(data)?data[0]:data;await crearPdf(row);setMsg('constanciaMsg','Constancia generada correctamente.',true);await pintar()}catch(e){setMsg('constanciaMsg',e.message||String(e))}};
@@ -461,6 +467,8 @@ async function crearPdf(row){
   pdf.save(`Constancia_SINTRAINCES_${afiliado.cedula}.pdf`);
 }
 let recuperacionActiva=false;
+$('diagnosticoVinculacionBtn').onclick=diagnosticarVinculacion;
+
 sb.auth.onAuthStateChange((event,session)=>{
   if(event==='PASSWORD_RECOVERY'){
     recuperacionActiva=true;
@@ -472,15 +480,7 @@ sb.auth.onAuthStateChange((event,session)=>{
 (async()=>{
   const {data:{session}}=await sb.auth.getSession();
   if(session && !recuperacionActiva && !window.location.hash.includes('type=recovery')){
-    try{
-      await cargarPerfil();
-      $('authView').classList.add('hidden');
-      $('appView').classList.remove('hidden');
-    }catch(e){
-      $('appView').classList.add('hidden');
-      $('authView').classList.remove('hidden');
-      setMsg('authMsg','Sesión activa, pero falta el perfil SINTRAINCES. Puedes ejecutar la prueba técnica de vinculación.');
-    }
+    try{await cargarPerfil();$('authView').classList.add('hidden');$('appView').classList.remove('hidden')}catch(e){await sb.auth.signOut()}
   }
 })();
 </script>
