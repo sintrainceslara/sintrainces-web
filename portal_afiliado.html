@@ -21,9 +21,9 @@ body{background:#f4f7fb}.portal{max-width:1080px;margin:24px auto;padding:16px}.
       <h1>Portal del Afiliado</h1>
       <p class="muted">Consulta tus datos, solicita correcciones y genera tu constancia de afiliación.</p>
       <div id="authMsg" class="msg"></div>
-      <div class="grid" style="margin-top:16px">
-        <section class="card" style="box-shadow:none;border:1px solid #e5e9ef">
-          <h2>Crear acceso</h2>
+      <div class="grid" id="authCards" style="margin-top:16px;grid-template-columns:1fr">
+        <section id="registerCard" class="card" style="box-shadow:none;border:1px solid #e5e9ef">
+          <h2>Registro de afiliado</h2>
           <form id="regForm">
             <label>Correo electrónico<input id="rEmail" type="email" required></label>
             <label>Contraseña<input id="rPass" type="password" minlength="8" required></label>
@@ -33,9 +33,10 @@ body{background:#f4f7fb}.portal{max-width:1080px;margin:24px auto;padding:16px}.
             <div class="actions"><button>Crear mi acceso</button></div>
             <div id="regMsg" class="msg"></div>
           </form>
+          <a id="openLoginLink" class="auth-link" href="?acceso=1">¿Ya tienes una cuenta? Ingresa aquí</a>
         </section>
-        <section class="card" style="box-shadow:none;border:1px solid #e5e9ef">
-          <h2>Ya tengo acceso</h2>
+        <section id="loginCard" class="card hidden" style="box-shadow:none;border:1px solid #e5e9ef">
+          <h2>Ingreso al portal</h2>
           <form id="loginForm">
             <label>Correo electrónico<input id="lEmail" type="email" required></label>
             <label>Contraseña<input id="lPass" type="password" required></label>
@@ -44,6 +45,7 @@ body{background:#f4f7fb}.portal{max-width:1080px;margin:24px auto;padding:16px}.
             <div class="actions"><button>Ingresar</button></div>
             <div id="loginMsg" class="msg"></div>
             <a id="forgotPasswordLink" class="auth-link" href="#">¿Olvidaste tu contraseña?</a>
+            <br><a id="backToRegisterLink" class="auth-link" href="portal_afiliado.html">Volver al registro</a>
           </form>
           <div id="recoveryBox" class="recovery-box hidden">
             <h3>Recuperar contraseña</h3>
@@ -219,6 +221,17 @@ body{background:#f4f7fb}.portal{max-width:1080px;margin:24px auto;padding:16px}.
 <script>
 const cfg=window.SINTRAINCES_CONFIG;
 const sb=window.supabase.createClient(cfg.SUPABASE_URL,cfg.SUPABASE_PUBLISHABLE_KEY);
+// La página abre por defecto el registro. El ingreso se muestra aparte mediante ?acceso=1.
+function mostrarVistaAcceso(ingreso){
+  $('registerCard').classList.toggle('hidden',ingreso);
+  $('loginCard').classList.toggle('hidden',!ingreso);
+  const titulo=$('authView').querySelector('h1');
+  if(titulo)titulo.textContent=ingreso?'Ingreso al Portal del Afiliado':'Portal del Afiliado';
+  const url=new URL(location.href);
+  if(ingreso)url.searchParams.set('acceso','1');else url.searchParams.delete('acceso');
+  history.replaceState({},'',url.pathname+url.search+url.hash);
+}
+
 const $=id=>document.getElementById(id);
 let perfil=null, afiliado=null;
 const setMsg=(id,t,ok=false)=>{$(id).textContent=t;$(id).style.color=ok?'#027a48':'#b42318'};
@@ -323,6 +336,10 @@ async function cargarReclamos(){
   if(error){$('reclamos').innerHTML='<div class="muted">No se pudieron cargar tus reclamos y sugerencias.</div>';return;}
   $('reclamos').innerHTML='<h3 style="font-size:15px;margin-bottom:8px">Mis reclamos y sugerencias</h3>'+((data||[]).map(x=>`<div class="reclamo-row"><div class="reclamo-head"><b>${esc(x.asunto||etiquetaTipo(x.tipo))}</b><span class="reclamo-estado">${esc(etiquetaEstado(x.estado))}</span></div><div class="reclamo-meta">${esc(etiquetaTipo(x.tipo))} · ${esc(etiquetaCategoria(x.categoria))} · ${fechaHora(x.created_at)}${x.fecha_hecho?' · Hecho: '+fecha(x.fecha_hecho):''}</div><div style="margin-top:8px;font-size:13px">${esc(x.descripcion||'')}</div>${x.sugerencia?`<div class="reclamo-sugerencia"><b>Sugerencia del afiliado:</b><br>${esc(x.sugerencia)}</div>`:''}${x.respuesta?`<div class="reclamo-sugerencia" style="border-left-color:#667085"><b>Respuesta de SINTRAINCES:</b><br>${esc(x.respuesta)}</div>`:''}</div>`).join('')||'<div class="muted">Aún no tienes reclamos o sugerencias registrados.</div>');
 }
+$('openLoginLink').onclick=e=>{e.preventDefault();mostrarVistaAcceso(true);$('lEmail').focus();};
+$('backToRegisterLink').onclick=e=>{e.preventDefault();mostrarVistaAcceso(false);};
+mostrarVistaAcceso(new URLSearchParams(location.search).get('acceso')==='1');
+
 $('regForm').onsubmit=async e=>{
   e.preventDefault();setMsg('regMsg','Validando los datos…');
   if($('rPass').value!==$('rPass2').value)return setMsg('regMsg','Las contraseñas no coinciden.');
@@ -334,7 +351,7 @@ $('regForm').onsubmit=async e=>{
     const {data,error}=await sb.auth.signUp({email,password:$('rPass').value,options:{emailRedirectTo:new URL('portal_afiliado.html', document.baseURI).href}});
     if(error)throw new Error(mensajeRegistro(error));
     if(data.session){await vincular($('rCed').value,dobISO);await iniciarPortal();}
-    else{setMsg('regMsg','Solicitud de acceso procesada. Revisa tu correo para confirmar la cuenta; si ya tienes una cuenta, ingresa desde «Ya tengo acceso».',true)}
+    else{setMsg('regMsg','Solicitud de acceso procesada. Revisa tu correo para confirmar la cuenta.',true)}
   }catch(err){setMsg('regMsg',mensajeRegistro(err))}
 };
 $('loginForm').onsubmit=async e=>{e.preventDefault();setMsg('loginMsg','Ingresando…');let dobISO;try{dobISO=fechaVEaISO($('lDob').value)}catch(err){return setMsg('loginMsg',err.message||String(err))}try{const {data,error}=await sb.auth.signInWithPassword({email:$('lEmail').value.trim(),password:$('lPass').value});if(error)throw error;await vincular($('lCed').value,dobISO);await iniciarPortal()}catch(e){setMsg('loginMsg',mensajeRegistro(e))}};
