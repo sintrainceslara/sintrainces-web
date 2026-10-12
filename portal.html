@@ -33,7 +33,10 @@ async function init(){
 async function route(session){
  msg('Verificando perfil…');
  const {data,error}=await sb.rpc('mi_perfil_actual');if(error)throw error;const p=Array.isArray(data)?data[0]:data;
- if(!p||p.activo===false)throw new Error('La cuenta no tiene un perfil SINTRAINCES activo.');
+ // Si la cuenta aún no tiene perfil, continuar por el ingreso del afiliado,
+ // que solicita cédula y fecha de nacimiento para vincularla al registro sindical.
+ if(!p){location.href='portal_afiliado.html?acceso=1';return;}
+ if(p.activo===false)throw new Error('La cuenta tiene un perfil SINTRAINCES inactivo. Consulte con la organización.');
  if(['admin_nacional','admin_seccional'].includes(p.rol))location.href='admin.html';
  else if(p.rol==='afiliado')location.href='portal_afiliado.html';
  else if(p.rol==='dirigente')location.href='portal_dirigente.html';
